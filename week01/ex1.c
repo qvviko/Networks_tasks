@@ -7,6 +7,8 @@
 #define TRUE 1
 #define FALSE 0
 #define BUF_SIZE 1024
+
+// Skeleton for the stack
 struct Node {
     int data;
     struct Node *next;
@@ -30,6 +32,9 @@ void stack_size();
 struct Node *stack = NULL; //Our stack, Empty at the beginning
 static int size_of_the_stack = 0;
 
+/*
+ * Check if str starts with beginning
+ */
 int starts_with(char *str, char *beginning) {
     size_t len1 = strlen(str), len2 = strlen(beginning);
     if (len2 > len1) {
@@ -91,6 +96,9 @@ void push(int data) {
 
 }
 
+/*
+ * Silent pop without notifications
+ */
 void silent_pop() {
     if (stack == NULL) {
         //No stack exists
@@ -145,13 +153,19 @@ void pop() {
 int empty() {
     if (stack == NULL) {
         printf("Stack is not created\n");
+        return 1;
     } else if (size_of_the_stack == 0) {
         printf("Stack is empty\n");
+        return 1;
     } else {
         printf("Stack is not empty\n");
+        return 0;
     }
 }
 
+/*
+ * String representations of the stack
+ */
 void display() {
     if (stack == NULL) {
         printf("Stack is not created\n");
@@ -184,6 +198,9 @@ void create() {
     printf("Stack is created\n");
 }
 
+/*
+ * Output stack size
+ */
 void stack_size() {
     if (stack != NULL) {
         printf("Size of the stack is: %d\n", size_of_the_stack);
@@ -195,27 +212,33 @@ void stack_size() {
 int main(void) {
     int fds[2];
     char buf[BUF_SIZE];
+    // Create pipe
     if (pipe(fds)) {
         printf("Error in pipe creation\n");
         exit(EXIT_FAILURE);
     }
 
     int pid = fork();
-    if (pid == 0) {
+    if (pid > 0) {
         // Parent Process - Client
         close(fds[0]); // Close read side
 
         while (TRUE) {
+            // Get command, remove \n n the end
             fgets(buf, BUF_SIZE, stdin);
             buf[strlen(buf) - 1] = '\0';
+            // Send command via pipe
             write(fds[1], &buf, sizeof(char) * BUF_SIZE);
         }
-    } else if (pid > 0) {
+    } else if (pid == 0) {
         // Child Process - Server
         close(fds[1]); // Close write side
 
         while (TRUE) {
+            // Read from pipe (suspends if pipe is empty)
             read(fds[0], &buf, sizeof(char) * BUF_SIZE);
+
+            // Proceed with commands
             printf("-- ");
             if (!strcmp(buf, "create")) {
                 create();
