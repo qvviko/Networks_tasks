@@ -1,0 +1,19 @@
+### Idea ###
+*.iml
+*.ipr
+*.iws
+.idea
+out
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Cmake
+cmake-build-debug
+CMakeLists.txt
+
+# Dolphin
+.directory
