@@ -5,6 +5,7 @@
 #include <signal.h>
 
 #define TRUE 1
+#define BUF_SIZE 1024
 struct Node {
     int data;
     struct Node *next;
@@ -32,8 +33,10 @@ static int size_of_the_stack = 0;
  * Peek at the top element
  */
 int peek() {
-    if (stack == NULL || size_of_the_stack == 0) {
-        exit(EXIT_FAILURE);
+    if (stack == NULL) {
+        printf("Stack is not created");
+    } else if (!size_of_the_stack) {
+        printf("Stack is empty");
     }
     return stack->data;
 }
@@ -44,12 +47,12 @@ int peek() {
 void push(int data) {
     if (stack == NULL) {
         //No stack exists
-        exit(EXIT_FAILURE);
+        printf("Stack is not created\n");
     }
     //Create new node
     struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
     if (new_node == NULL) {
-        exit(EXIT_FAILURE);
+        printf("No space for the new node");
     }
     new_node->data = data;
     new_node->prev = NULL;
@@ -72,9 +75,11 @@ void push(int data) {
  * Pop top element from stack
  */
 void pop() {
-    if (stack == NULL || size_of_the_stack) {
+    if (stack == NULL) {
         //No stack exists
-        exit(EXIT_FAILURE);
+        printf("Stack is not created");
+    } else if (!size_of_the_stack) {
+        printf("Stack is empty");;
     } else {
         struct Node *old_node = stack;
         stack = stack->next;
@@ -129,45 +134,75 @@ void create() {
 }
 
 void stack_size() {
-    printf("Size of the stack is: %d", size_of_the_stack);
+    if (stack != NULL) {
+        printf("Size of the stack is: %d", size_of_the_stack);
+    } else {
+        printf("Stack is not created");
+    }
 };
 
 int main(void) {
     int fds[2];
-    char buf[1024];
+    char buf[BUF_SIZE];
     if (pipe(fds)) {
         printf("Error in pipe creation");
         exit(EXIT_FAILURE);
     }
 
     int pid = fork();
-    if (pid > 0) {
+    if (pid == 0) {
         // Parent Process - Client
         close(fds[0]); // Close read side
 
         while (TRUE) {
-            printf("Enter command\n");
-            scanf("%s\n", buf);
-            write(fds[1], buf, 1024);
-            kill(pid, SIGCONT);
+            printf(">");
+            fgets(buf, BUF_SIZE, stdin);
+            buf[strlen(buf) - 1] = '\0';
+            write(fds[1], &buf, sizeof(char) * BUF_SIZE);
         }
-    } else if (pid == 0) {
+    } else if (pid > 0) {
         // Child Process - Server
-        printf("Child here");
         close(fds[1]); // Close write side
-        while (TRUE) {
-            // Set signal retrieval
-            sigset_t sigset;
-            sigemptyset(&sigset);
-            sigaddset(&sigset, SIGCONT);
-//            sigprocmask(SIG_BLOCK, &sigset, NULL);
 
-            int sig;
-            printf("Waiting for the signal");
-            sigwait(&sigset, &sig);
-            printf("Got signal");
-            read(fds[0], buf, 1024);
-            printf("%s", buf);
+        while (TRUE) {
+
+            read(fds[0], &buf, sizeof(char) * BUF_SIZE);
+            if (!strcmp(buf, "create")) {
+                create();
+                printf("Stack is created\n");
+            } else if (!strcmp(buf, "push")) {
+                int data;
+                sscanf(buf, "push %d", &data);
+                push(data);
+                printf("%d is pushed onto the stack", data);
+            } else if (!strcmp(buf, "pop")) {
+                pop();
+                printf("Top element popped");
+            } else if (!strcmp(buf, "peek")) {
+                int data = peek();
+                printf("%d is on top of the stack", data);
+            } else if (!strcmp(buf, "empty")) {
+                if (empty()) {
+                    printf("Stack is empty\n");
+                } else {
+                    printf("Stack is not empty\n");
+                }
+            } else if (!strcmp(buf, "display")) {
+                display();
+            } else if (!strcmp(buf, "size")) {
+                stack_size();
+            } else if (!strcmp(buf, "help")) {
+                printf("Possible commands are:\n");
+                printf("help - show this\n");
+                printf("create - creates stack\n");
+                printf("push X - pushes integer X onto the stack\n");
+                printf("pop - removes top element from the stack\n");
+                printf("empty - checks if stack is empty\n");
+                printf("display - string representation of the current stack\n");
+                printf("size - output current stack size\n");
+            } else {
+                printf("Wrong command, if you need command print 'help'\n");
+            }
         }
     } else {
         exit(EXIT_FAILURE);
