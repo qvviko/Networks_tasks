@@ -5,6 +5,7 @@
 #include <signal.h>
 
 #define TRUE 1
+#define FALSE 0
 #define BUF_SIZE 1024
 struct Node {
     int data;
@@ -29,16 +30,31 @@ void stack_size();
 struct Node *stack = NULL; //Our stack, Empty at the beginning
 static int size_of_the_stack = 0;
 
+int starts_with(char *str, char *beginning) {
+    size_t len1 = strlen(str), len2 = strlen(beginning);
+    if (len2 > len1) {
+        return FALSE;
+    }
+    int res = TRUE;
+    for (int i = 0; i < len2; ++i) {
+        res = res * (str[i] == beginning[i]);
+    }
+    return res;
+}
+
 /*
  * Peek at the top element
  */
 int peek() {
     if (stack == NULL) {
-        printf("Stack is not created");
+        printf("Stack is not created\n");
     } else if (!size_of_the_stack) {
-        printf("Stack is empty");
+        printf("Stack is empty\n");
+    } else {
+        printf("%d is on top of the stack\n", stack->data);
+
+        return stack->data;
     }
-    return stack->data;
 }
 
 /*
@@ -48,38 +64,39 @@ void push(int data) {
     if (stack == NULL) {
         //No stack exists
         printf("Stack is not created\n");
-    }
-    //Create new node
-    struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
-    if (new_node == NULL) {
-        printf("No space for the new node");
-    }
-    new_node->data = data;
-    new_node->prev = NULL;
-    new_node->next = NULL;
-
-    //Change state of the stack
-    if (size_of_the_stack == 0) {
-        stack = new_node;
     } else {
-        struct Node *old = stack;
-        stack->prev = new_node;
-        new_node->next = stack;
-        stack = new_node;
+        //Create new node
+        struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
+        if (new_node == NULL) {
+            printf("No space for the new node\n");
+        }
+        new_node->data = data;
+        new_node->prev = NULL;
+        new_node->next = NULL;
+
+        //Change state of the stack
+        if (size_of_the_stack == 0) {
+            stack = new_node;
+        } else {
+            struct Node *old = stack;
+            stack->prev = new_node;
+            new_node->next = stack;
+            stack = new_node;
+        }
+
+        ++size_of_the_stack;
+        printf("%d is pushed onto the stack\n", data);
+
     }
 
-    ++size_of_the_stack;
 }
 
-/*
- * Pop top element from stack
- */
-void pop() {
+void silent_pop() {
     if (stack == NULL) {
         //No stack exists
-        printf("Stack is not created");
+        return;
     } else if (!size_of_the_stack) {
-        printf("Stack is empty");;
+        return;
     } else {
         struct Node *old_node = stack;
         stack = stack->next;
@@ -91,30 +108,63 @@ void pop() {
             //If stack is now empty create free Node
             stack = (struct Node *) malloc(sizeof(struct Node));
         }
+        --size_of_the_stack;
 
     }
-    --size_of_the_stack;
+}
+
+/*
+ * Pop top element from stack
+ */
+void pop() {
+    if (stack == NULL) {
+        //No stack exists
+        printf("Stack is not created\n");
+    } else if (!size_of_the_stack) {
+        printf("Stack is empty\n");;
+    } else {
+        struct Node *old_node = stack;
+        stack = stack->next;
+        free(old_node);
+
+        if (stack != NULL) {
+            stack->prev = NULL;
+        } else {
+            //If stack is now empty create free Node
+            stack = (struct Node *) malloc(sizeof(struct Node));
+        }
+        printf("Top element popped\n");
+        --size_of_the_stack;
+
+    }
 }
 
 /*
  * Check if stack is empty, 0 if not and 1 if yes
  */
 int empty() {
-    return size_of_the_stack == 0;
+    if (stack == NULL) {
+        printf("Stack is not created\n");
+    } else if (size_of_the_stack == 0) {
+        printf("Stack is empty\n");
+    } else {
+        printf("Stack is not empty\n");
+    }
 }
 
 void display() {
     if (stack == NULL) {
-        printf("Stack is not created");
+        printf("Stack is not created\n");
     } else if (size_of_the_stack == 0) {
-        printf("Stack is empty");
+        printf("Stack is empty\n");
     } else {
         struct Node *cur = stack;
-        printf("Current state of the stack is: ");
+        printf("Current state of the stack is: \n");
         do {
             printf("%d ", cur->data);
             cur = cur->next;
         } while (cur != NULL);
+        printf("\n");
     }
 }
 
@@ -127,17 +177,18 @@ void create() {
         stack = (struct Node *) malloc(sizeof(struct Node));
     } else {
         //If stack is not empty - clear
-        while (!empty()) {
-            pop();
+        while (size_of_the_stack != 0) {
+            silent_pop();
         }
     }
+    printf("Stack is created\n");
 }
 
 void stack_size() {
     if (stack != NULL) {
-        printf("Size of the stack is: %d", size_of_the_stack);
+        printf("Size of the stack is: %d\n", size_of_the_stack);
     } else {
-        printf("Stack is not created");
+        printf("Stack is not created\n");
     }
 };
 
@@ -145,7 +196,7 @@ int main(void) {
     int fds[2];
     char buf[BUF_SIZE];
     if (pipe(fds)) {
-        printf("Error in pipe creation");
+        printf("Error in pipe creation\n");
         exit(EXIT_FAILURE);
     }
 
@@ -155,7 +206,6 @@ int main(void) {
         close(fds[0]); // Close read side
 
         while (TRUE) {
-            printf(">");
             fgets(buf, BUF_SIZE, stdin);
             buf[strlen(buf) - 1] = '\0';
             write(fds[1], &buf, sizeof(char) * BUF_SIZE);
@@ -165,28 +215,20 @@ int main(void) {
         close(fds[1]); // Close write side
 
         while (TRUE) {
-
             read(fds[0], &buf, sizeof(char) * BUF_SIZE);
+            printf("-- ");
             if (!strcmp(buf, "create")) {
                 create();
-                printf("Stack is created\n");
-            } else if (!strcmp(buf, "push")) {
+            } else if (starts_with(buf, "push")) {
                 int data;
                 sscanf(buf, "push %d", &data);
                 push(data);
-                printf("%d is pushed onto the stack", data);
             } else if (!strcmp(buf, "pop")) {
                 pop();
-                printf("Top element popped");
             } else if (!strcmp(buf, "peek")) {
                 int data = peek();
-                printf("%d is on top of the stack", data);
             } else if (!strcmp(buf, "empty")) {
-                if (empty()) {
-                    printf("Stack is empty\n");
-                } else {
-                    printf("Stack is not empty\n");
-                }
+                empty();
             } else if (!strcmp(buf, "display")) {
                 display();
             } else if (!strcmp(buf, "size")) {
@@ -195,6 +237,7 @@ int main(void) {
                 printf("Possible commands are:\n");
                 printf("help - show this\n");
                 printf("create - creates stack\n");
+                printf("peek - peek at the first element of the stack\n");
                 printf("push X - pushes integer X onto the stack\n");
                 printf("pop - removes top element from the stack\n");
                 printf("empty - checks if stack is empty\n");
