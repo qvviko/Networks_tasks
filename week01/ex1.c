@@ -1,7 +1,10 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <signal.h>
 
+#define TRUE 1
 struct Node {
     int data;
     struct Node *next;
@@ -130,26 +133,43 @@ void stack_size() {
 };
 
 int main(void) {
-    int pid = fork();
+    int fds[2];
+    char buf[1024];
+    if (pipe(fds)) {
+        printf("Error in pipe creation");
+        exit(EXIT_FAILURE);
+    }
 
+    int pid = fork();
     if (pid > 0) {
         // Parent Process - Client
+        close(fds[0]); // Close read side
+
+        while (TRUE) {
+            printf("Enter command\n");
+            scanf("%s\n", buf);
+            write(fds[1], buf, 1024);
+            kill(pid, SIGCONT);
+        }
     } else if (pid == 0) {
         // Child Process - Server
+        printf("Child here");
+        close(fds[1]); // Close write side
+        while (TRUE) {
+            // Set signal retrieval
+            sigset_t sigset;
+            sigemptyset(&sigset);
+            sigaddset(&sigset, SIGCONT);
+//            sigprocmask(SIG_BLOCK, &sigset, NULL);
+
+            int sig;
+            printf("Waiting for the signal");
+            sigwait(&sigset, &sig);
+            printf("Got signal");
+            read(fds[0], buf, 1024);
+            printf("%s", buf);
+        }
     } else {
         exit(EXIT_FAILURE);
     }
 }
-
-
-/*
- *     int pid = fork(), n = 811;
-    if (pid > 0) {
-        printf("Hello from parent [%d - %d]\n", pid, n);
-    } else if (pid == 0) {
-        printf("Hello from child [%d - %d]\n", pid, n);
-    } else {
-        exit(EXIT_FAILURE);
-    }
-    exit(EXIT_SUCCESS);
- */
