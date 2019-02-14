@@ -15,8 +15,8 @@ result_struct_t result;
 void setup_tcp_communication() {
     /*Step 1 : Initialization*/
     /*Socket handle*/
-    int sockfd = 0, 
-        sent_recv_bytes = 0;
+    int sockfd = 0,
+            sent_recv_bytes = 0;
 
     int addr_len = 0;
 
@@ -33,65 +33,65 @@ void setup_tcp_communication() {
      * port on DEST_PORT, server IP address SERVER_IP_ADDRESS.
      * Inform client about which server to send data to : All we need is port number, and server ip address. Pls note that
      * there can be many processes running on the server listening on different no of ports, 
-     * our client is interested in sending data to server process which is lisetning on PORT = DEST_PORT*/ 
+     * our client is interested in sending data to server process which is lisetning on PORT = DEST_PORT*/
     dest.sin_port = DEST_PORT;
-    struct hostent *host = (struct hostent *)gethostbyname(SERVER_IP_ADDRESS);
-    dest.sin_addr = *((struct in_addr *)host->h_addr);
+    struct hostent *host = (struct hostent *) gethostbyname(SERVER_IP_ADDRESS);
+    dest.sin_addr = *((struct in_addr *) host->h_addr);
 
     /*Step 3 : Create a TCP socket*/
     /*Create a socket finally. socket() is a system call, which asks for three paramemeters*/
     sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 
-    connect(sockfd, (struct sockaddr *)&dest,sizeof(struct sockaddr));
+    connect(sockfd, (struct sockaddr *) &dest, sizeof(struct sockaddr));
 
     /*Step 4 : get the data to be sent to server*/
     /*Our client is now ready to send data to server. sendto() sends data to Server*/
 
-    while(1) {
+    while (1) {
 
-	    /*Prompt the user to enter data*/
-	    /*You will want to change the promt for the second task*/
-	    printf("Enter a : ?\n");
-	    scanf("%u", &client_data.a);
-	    printf("Enter b : ?\n");
-	    scanf("%u", &client_data.b);
-	    
-	    /*Code for task 2 goes here*/
-	    /*....*/
-	    
-	    /*step 5 : send the data to server*/
-	    /*Again, keep in mind the type of our msg*/
+        /*Prompt the user to enter data*/
+        /*You will want to change the promt for the second task*/
+        printf("Enter a : ?\n");
+        scanf("%u", &client_data.a);
+        printf("Enter b : ?\n");
+        scanf("%u", &client_data.b);
 
-	    /*Code for task 2 goes here*/
-	    /*....*/
+        /*Code for task 2 goes here*/
+        /*....*/
 
-	    sent_recv_bytes = sendto(sockfd, 
-		   &client_data,
-		   sizeof(test_struct_t), 
-		   0, 
-		   (struct sockaddr *)&dest, 
-		   sizeof(struct sockaddr));
-	    
-	    printf("No of bytes sent = %d\n", sent_recv_bytes);
-	   
-	    /*Step 6 : Client also wants a reply from server after sending data*/
-	    
-	    /*recvfrom is a blocking system call, meaning the client program will not run past this point
-	     * until the data arrives on the socket from server*/
-	    /*Once more, watch the types!!!*/
-	    /*Code for task 2 goes here*/
-	    /*....*/
+        /*step 5 : send the data to server*/
+        /*Again, keep in mind the type of our msg*/
 
-	    sent_recv_bytes =  recvfrom(sockfd, (char *)&result, sizeof(result_struct_t), 0,
-		            (struct sockaddr *)&dest, &addr_len);
+        /*Code for task 2 goes here*/
+        /*....*/
 
-	    printf("No of bytes received = %d\n", sent_recv_bytes);
-	    
-	    printf("Result received = %u\n", result.c);
+        sent_recv_bytes = sendto(sockfd,
+                                 &client_data,
+                                 sizeof(test_struct_t),
+                                 0,
+                                 (struct sockaddr *) &dest,
+                                 sizeof(struct sockaddr));
+
+        printf("No of bytes sent = %d\n", sent_recv_bytes);
+
+        /*Step 6 : Client also wants a reply from server after sending data*/
+
+        /*recvfrom is a blocking system call, meaning the client program will not run past this point
+         * until the data arrives on the socket from server*/
+        /*Once more, watch the types!!!*/
+        /*Code for task 2 goes here*/
+        /*....*/
+
+        sent_recv_bytes = recvfrom(sockfd, (char *) &result, sizeof(result_struct_t), 0,
+                                   (struct sockaddr *) &dest, &addr_len);
+
+        printf("No of bytes received = %d\n", sent_recv_bytes);
+
+        printf("Result received = %u\n", result.c);
     }
 }
-    
+
 
 int main(int argc, char **argv) {
     setup_tcp_communication();

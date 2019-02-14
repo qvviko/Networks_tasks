@@ -7,11 +7,11 @@
 #include <netdb.h>
 #include <memory.h>
 #include <errno.h>
-#include <zconf.h>
 #include "common.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 /*Server process is running on this port no. Client has to send data to this port no*/
 #define SERVER_PORT     2000
@@ -72,7 +72,7 @@ setup_tcp_server_communication() {
 
     struct sockaddr_in sin;
     socklen_t len = sizeof(sin);
-    if (getsockname(master_sock_tcp_fd, (struct sockaddr *)&sin, &len) == -1)
+    if (getsockname(master_sock_tcp_fd, (struct sockaddr *) &sin, &len) == -1)
         perror("getsockname");
     else
         printf("port number %d\n", ntohs(sin.sin_port));
