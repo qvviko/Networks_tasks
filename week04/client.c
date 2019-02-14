@@ -4,11 +4,12 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <memory.h>
+#include <unistd.h>
 #include "common.h"
 
 #define DEST_PORT            2000
 #define SERVER_IP_ADDRESS   "127.0.0.1"
-
+#define STDIN
 test_struct_t client_data;
 result_struct_t result;
 
@@ -52,10 +53,14 @@ void setup_tcp_communication() {
 
         /*Prompt the user to enter data*/
         /*You will want to change the promt for the second task*/
-        printf("Enter a : ?\n");
-        scanf("%u", &client_data.a);
-        printf("Enter b : ?\n");
-        scanf("%u", &client_data.b);
+        printf("Enter name : ?\n");
+        ssize_t num_read = read(0, client_data.name, sizeof(client_data.name) - 1);
+        client_data.name[num_read - 1] = '\0';
+        printf("Enter age : ?\n");
+        scanf("%u", &client_data.age);
+        printf("Enter group number :? \n");
+        scanf("%u", &client_data.group_number);
+
 
         /*Code for task 2 goes here*/
         /*....*/
@@ -88,7 +93,7 @@ void setup_tcp_communication() {
 
         printf("No of bytes received = %d\n", sent_recv_bytes);
 
-        printf("Result received = %u\n", result.c);
+        printf("Result received = %s\n", result.result);
     }
 }
 

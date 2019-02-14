@@ -34,7 +34,7 @@ setup_tcp_server_communication() {
     /*client specific communication socket file descriptor,
      * used for only data exchange/communication between client and server*/
     int comm_socket_fd = 0;
-    /* Set of file descriptor on which select() polls. Select() unblocks whever data arrives on
+    /* Set of file descriptor on which select() polls. Select() unblocks whenever data arrives on
      * any fd present in this set*/
     fd_set readfds;
     /*variables to hold server information*/
@@ -153,7 +153,7 @@ setup_tcp_server_communication() {
                 /* If the client sends a special msg to server, then server close the client connection
                  * for forever*/
                 /*Step 9 */
-                if (client_data->a == 0 && client_data->b == 0) {
+                if (client_data->name[0] == '\n') {
 
                     close(comm_socket_fd);
                     printf("Server closes connection with client : %s:%u\n", inet_ntoa(client_addr.sin_addr),
@@ -162,8 +162,32 @@ setup_tcp_server_communication() {
                     break;/*Get out of inner while loop, server is done with this client, time to check for new connection request by executing selct()*/
                 }
 
+
+                char buf[20];
                 result_struct_t result;
-                result.c = client_data->a + client_data->b;
+                int cur_int = 0;
+                result.result[cur_int] = '(';
+                cur_int++;
+                strcpy(result.result + cur_int, client_data->name);
+                cur_int += strlen(client_data->name);
+
+                result.result[cur_int] = ',';
+                result.result[cur_int + 1] = ' ';
+                cur_int += 2;
+                snprintf(buf, 10, "%d", client_data->age);
+                strcpy(result.result + cur_int, buf);
+                cur_int += strlen(buf);
+                result.result[cur_int] = ',';
+                result.result[cur_int + 1] = ' ';
+
+                cur_int += 2;
+                sprintf(buf, "%d", client_data->group_number);
+                strcpy(result.result + cur_int, buf);
+
+                cur_int += strlen(buf);
+                result.result[cur_int] = ')';
+                result.result[cur_int + 1] = '\0';
+
 
                 /* Server replying back to client now*/
                 sent_recv_bytes = sendto(comm_socket_fd, (char *) &result, sizeof(result_struct_t), 0,
