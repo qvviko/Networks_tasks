@@ -7,7 +7,11 @@
 #include <netdb.h>
 #include <memory.h>
 #include <errno.h>
+#include <zconf.h>
 #include "common.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 /*Server process is running on this port no. Client has to send data to this port no*/
 #define SERVER_PORT     2000
@@ -16,7 +20,8 @@ test_struct_t test_struct;
 result_struct_t res_struct;
 char data_buffer[1024];
 
-void setup_tcp_server_communication() {
+void
+setup_tcp_server_communication() {
 
     /*Step 1 : Initialization*/
     /*Socket handle and other variables*/
@@ -29,7 +34,7 @@ void setup_tcp_server_communication() {
     /*client specific communication socket file descriptor,
      * used for only data exchange/communication between client and server*/
     int comm_socket_fd = 0;
-    /* Set of file descriptor on which select() polls. Select() unblocks whenever data arrives on
+    /* Set of file descriptor on which select() polls. Select() unblocks whever data arrives on
      * any fd present in this set*/
     fd_set readfds;
     /*variables to hold server information*/
@@ -49,6 +54,7 @@ void setup_tcp_server_communication() {
     /*3232249957; //( = 192.168.56.101); Server's IP address,
     //means, Linux will send all data whose destination address = address of any local interface
     //of this machine, in this case it is 192.168.56.101*/
+
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
     addr_len = sizeof(struct sockaddr);
@@ -63,6 +69,14 @@ void setup_tcp_server_communication() {
         printf("socket bind failed\n");
         return;
     }
+
+    struct sockaddr_in sin;
+    socklen_t len = sizeof(sin);
+    if (getsockname(master_sock_tcp_fd, (struct sockaddr *)&sin, &len) == -1)
+        perror("getsockname");
+    else
+        printf("port number %d\n", ntohs(sin.sin_port));
+
 
     /*Step 4 : Tell the Linux OS to maintain the queue of max length to Queue incoming
      * client connections.*/
@@ -116,7 +130,7 @@ void setup_tcp_server_communication() {
                 /*Step 8: Server recieving the data from client. Client IP and PORT no will be stored in client_addr
                  * by the kernel. Server will use this client_addr info to reply back to client*/
 
-                /*Like in client case, this is also a blocking system call, meaning, server process halts here until
+                /*Like in client case, this is also a blocking system call, meaning, server process halts here untill
                  * data arrives on this comm_socket_fd from client whose connection request has been accepted via accept()*/
                 /* state Machine state 3*/
                 sent_recv_bytes = recvfrom(comm_socket_fd, (char *) data_buffer, sizeof(data_buffer), 0,
