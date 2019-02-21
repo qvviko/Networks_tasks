@@ -29,12 +29,6 @@ void setup_tcp_communication() {
     /*Step 2: specify server information*/
     /*Ipv4 sockets, Other values are IPv6*/
     dest.sin_family = AF_INET;
-
-    /*Client wants to send data to server process which is running on server machine, and listening on 
-     * port on DEST_PORT, server IP address SERVER_IP_ADDRESS.
-     * Inform client about which server to send data to : All we need is port number, and server ip address. Pls note that
-     * there can be many processes running on the server listening on different no of ports, 
-     * our client is interested in sending data to server process which is lisetning on PORT = DEST_PORT*/
     dest.sin_port = DEST_PORT;
     struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
     dest.sin_addr = *((struct in_addr *) host->h_addr);
@@ -45,17 +39,17 @@ void setup_tcp_communication() {
         fprintf(stderr, "Error on creating a socket");
         exit(1);
     }
-//
-//    memset((void *) &self_addr, 0, sizeof(self_addr));
-//
-//    self_addr.sin_family = AF_INET;
-//    self_addr.sin_port = htons(DEST_PORT + 1);
-//    self_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-//
-//    if (bind(sockfd, (struct sockaddr *) &self_addr, sizeof(self_addr)) == -1) {
-//        fprintf(stderr, "socket bind failed errno: %d\n", errno);
-//        exit(1);
-//    }
+
+    memset((void *) &self_addr, 0, sizeof(self_addr));
+
+    self_addr.sin_family = AF_INET;
+    self_addr.sin_port = htons(DEST_PORT + 1);
+    self_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(sockfd, (struct sockaddr *) &self_addr, sizeof(self_addr)) == -1) {
+        fprintf(stderr, "socket bind failed errno: %d\n", errno);
+        exit(1);
+    }
 
     /*Step 4 : get the data to be sent to server*/
     /*Our client is now ready to send data to server. sendto() sends data to Server*/
