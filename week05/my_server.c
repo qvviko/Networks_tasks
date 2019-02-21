@@ -79,7 +79,7 @@ int setup_connection() {
         cur_int += strlen(buf);
         result.result[cur_int] = ')';
         result.result[cur_int + 1] = '\0';
-        printf("Beginning to sent bytes");
+        printf("Beginning to sent bytes\n");
         if ((bytes_sent = sendto(server_socket, &result, sizeof(result_struct_t), 0,
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr))) == -1) {
             fprintf(stderr, "failed to sent data errno: %d", errno);
