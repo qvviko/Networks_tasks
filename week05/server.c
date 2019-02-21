@@ -16,11 +16,9 @@
 /*Server process is running on this port no. Client has to send data to this port no*/
 #define SERVER_PORT     2000
 
-test_struct_t test_struct;
-result_struct_t res_struct;
 char data_buffer[1024];
 
-void setup_tcp_server_communication() {
+void setup_udp_server_communication() {
 
     /*Socket handle and other variables*/
     /*Master socket file descriptor, used to accept new client connection only, no data exchange*/
@@ -28,9 +26,6 @@ void setup_tcp_server_communication() {
     ssize_t sent_recv_bytes = 0;
     socklen_t addr_len = 0;
 
-    /*client specific communication socket file descriptor,
-     * used for only data exchange/communication between client and server*/
-    int comm_socket_fd = 0;
     /*variables to hold server information*/
     struct sockaddr_in server_addr, client_addr;
 
@@ -65,15 +60,13 @@ void setup_tcp_server_communication() {
 
     while (1) {
         memset(data_buffer, 0, sizeof(data_buffer));
-        printf("blocked on receive call");
+        printf("blocked on receive call\n");
         fflush(stdout);
         if ((sent_recv_bytes = recvfrom(master_socket, data_buffer, sizeof(data_buffer), 0,
                                         (struct sockaddr *) &client_addr, &addr_len)) == -1) {
             printf("error on recieve");
             exit(1);
         }
-        printf("i'm here\n");
-        fflush(stdout);
 
         printf("Server recvd %lu bytes from client %s:%u\n", sent_recv_bytes,
                inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
@@ -111,13 +104,12 @@ void setup_tcp_server_communication() {
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr));
 
         printf("Server sent %lu bytes in reply to client\n", sent_recv_bytes);
-        /*Goto state machine State 3*/
     }
 }
 
 int
 main(void) {
 
-    setup_tcp_server_communication();
+    setup_udp_server_communication();
     return 0;
 }

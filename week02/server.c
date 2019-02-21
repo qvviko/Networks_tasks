@@ -16,7 +16,7 @@ test_struct_t test_struct;
 result_struct_t res_struct;
 char data_buffer[1024];
 
-void setup_tcp_server_communication() {
+void setup_udp_server_communication() {
 
     /*Step 1 : Initialization*/
     /*Socket handle and other variables*/
@@ -165,6 +165,6 @@ void setup_tcp_server_communication() {
 int
 main(int argc, char **argv) {
 
-    setup_tcp_server_communication();
+    setup_udp_server_communication();
     return 0;
 }
