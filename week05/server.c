@@ -22,7 +22,6 @@ char data_buffer[1024];
 
 void setup_tcp_server_communication() {
 
-    /*Step 1 : Initialization*/
     /*Socket handle and other variables*/
     /*Master socket file descriptor, used to accept new client connection only, no data exchange*/
     int master_socket = 0;
@@ -33,8 +32,7 @@ void setup_tcp_server_communication() {
      * used for only data exchange/communication between client and server*/
     int comm_socket_fd = 0;
     /*variables to hold server information*/
-    struct sockaddr_in server_addr, /*structure to store the server and client info*/
-            client_addr;
+    struct sockaddr_in server_addr, client_addr;
 
     /*step 2: udp master socket creation*/
     if ((master_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
@@ -42,15 +40,15 @@ void setup_tcp_server_communication() {
         exit(1);
     }
 
+    memset((void *) &server_addr, 0, sizeof(server_addr));
     /*Step 3: specify server Information*/
     server_addr.sin_family = AF_INET;/*This socket will process only ipv4 network packets*/
-    server_addr.sin_port = SERVER_PORT;/*Server will process any data arriving on port no 2000*/
-
+    server_addr.sin_port = htons(SERVER_PORT);/*Server will process any data arriving on port no 2000*/
     /*3232249957; //( = 192.168.56.101); Server's IP address,
     //means, Linux will send all data whose destination address = address of any local interface
     //of this machine, in this case it is 192.168.56.101*/
 
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     addr_len = sizeof(struct sockaddr);
 
@@ -59,36 +57,28 @@ void setup_tcp_server_communication() {
      * bind() is a mechnism to tell OS what kind of data server process is interested in to recieve. Remember, server machine
      * can run multiple server processes to process different data and service different clients. Note that, bind() is
      * used on server side, not on client side*/
-
-    if (bind(master_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1) {
+    if (bind(master_socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1) {
         printf("socket bind failed\n");
-        return;
+        exit(1);
     }
-
     /* Server infinite loop for servicing the client*/
 
     while (1) {
         memset(data_buffer, 0, sizeof(data_buffer));
-
-        sent_recv_bytes = recvfrom(comm_socket_fd, (char *) data_buffer, sizeof(data_buffer), 0,
-                                   (struct sockaddr *) &client_addr, &addr_len);
+        printf("blocked on receive call");
+        fflush(stdout);
+        if ((sent_recv_bytes = recvfrom(master_socket, data_buffer, sizeof(data_buffer), 0,
+                                        (struct sockaddr *) &client_addr, &addr_len)) == -1) {
+            printf("error on recieve");
+            exit(1);
+        }
+        printf("i'm here\n");
+        fflush(stdout);
 
         printf("Server recvd %lu bytes from client %s:%u\n", sent_recv_bytes,
                inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
         test_struct_t *client_data = (test_struct_t *) data_buffer;
-
-        /* If the client sends a special msg to server, then server close the client connection
-         * for forever* */
-        if (client_data->name[0] == '\n') {
-
-            close(comm_socket_fd);
-            printf("Server closes connection with client : %s:%u\n", inet_ntoa(client_addr.sin_addr),
-                   ntohs(client_addr.sin_port));
-            /*Goto state machine State 1*/
-            break;/*Get out of inner while loop, server is done with this client, time to check for new connection request by executing selct()*/
-        }
-
 
         char buf[20];
         result_struct_t result;
@@ -117,7 +107,7 @@ void setup_tcp_server_communication() {
 
 
         /* Server replying back to client now*/
-        sent_recv_bytes = sendto(comm_socket_fd, (char *) &result, sizeof(result_struct_t), 0,
+        sent_recv_bytes = sendto(master_socket, &result, sizeof(result_struct_t), 0,
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr));
 
         printf("Server sent %lu bytes in reply to client\n", sent_recv_bytes);
