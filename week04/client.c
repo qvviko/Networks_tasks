@@ -36,7 +36,7 @@ void setup_tcp_communication() {
      * there can be many processes running on the server listening on different no of ports, 
      * our client is interested in sending data to server process which is lisetning on PORT = DEST_PORT*/
     dest.sin_port = DEST_PORT;
-    struct hostent *host = (struct hostent *) gethostbyname(SERVER_IP_ADDRESS);
+    struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
     dest.sin_addr = *((struct in_addr *) host->h_addr);
 
     /*Step 3 : Create a TCP socket*/

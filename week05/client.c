@@ -29,7 +29,7 @@ void setup_tcp_communication() {
     /*Step 2: specify server information*/
     /*Ipv4 sockets, Other values are IPv6*/
     dest.sin_family = AF_INET;
-    dest.sin_port = DEST_PORT;
+    dest.sin_port = htons(DEST_PORT);
     struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
     dest.sin_addr = *((struct in_addr *) host->h_addr);
 

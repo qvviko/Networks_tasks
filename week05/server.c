@@ -109,7 +109,6 @@ void setup_udp_server_communication() {
 
 int
 main(void) {
-
     setup_udp_server_communication();
     return 0;
 }
