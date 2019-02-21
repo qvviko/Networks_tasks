@@ -64,12 +64,14 @@ int setup_connection() {
                                  (struct sockaddr *) &destination_addr, sizeof(struct sockaddr))) == -1) {
             fprintf(stderr, "failed to sent errno: %d", errno);
         }
+
         printf("No of bytes sent = %lu\n", bytes_sent);
 
         printf("Blocked on receive\n");
         bytes_received = recvfrom(client_socket, &result, sizeof(result_struct_t), 0,
                                   (struct sockaddr *) &destination_addr, &addr_len);
         printf("No of bytes received = %lu\n", bytes_received);
+        printf("Result received = %s\n", result.result);
 
     }
 }

@@ -41,9 +41,8 @@ int setup_connection() {
     }
 
     //Ready to receive data
-
     while (TRUE) {
-        printf("Blocked on receive\n");
+        printf("Blocked on receive call\n");
         fflush(stdout);
 
         if ((bytes_received = recvfrom(server_socket, data_buf, sizeof(data_buf), 0,
@@ -51,7 +50,8 @@ int setup_connection() {
             fprintf(stderr, "failed to receive data errno: %d", errno);
             return -1;
         }
-        printf("No of bytes received = %lu\n", bytes_received);
+        printf("Server recvd %lu bytes from client %s:%u\n", bytes_received,
+               inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
         test_struct_t *client_data = (test_struct_t *) data_buf;
 
@@ -79,7 +79,7 @@ int setup_connection() {
         cur_int += strlen(buf);
         result.result[cur_int] = ')';
         result.result[cur_int + 1] = '\0';
-
+        printf("Beginning to sent bytes");
         if ((bytes_sent = sendto(server_socket, &result, sizeof(result_struct_t), 0,
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr))) == -1) {
             fprintf(stderr, "failed to sent data errno: %d", errno);
