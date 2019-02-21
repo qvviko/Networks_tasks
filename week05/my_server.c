@@ -25,6 +25,7 @@ struct handle_data {
 
 void *handle_socket(void *data) {
     while (TRUE) {
+        // Set up data buffer and client address storage
         struct handle_data *d = (struct handle_data *) data;
         char data_buf[BUF_SIZE];
         socklen_t client_addr_len = 0;
@@ -35,6 +36,7 @@ void *handle_socket(void *data) {
 
         printf("Thread %d blocked on receive call\n", d->thread_id);
         fflush(stdout);
+        //Threads will listen to the same socket until one of them will catch the input and handle it
         if ((bytes_received = recvfrom(d->socket_id, data_buf, sizeof(data_buf), 0,
                                        (struct sockaddr *) &client_addr, &client_addr_len)) == -1) {
             fprintf(stderr, "failed to receive data errno: %d", errno);
@@ -42,10 +44,13 @@ void *handle_socket(void *data) {
         }
         time_t clk = time(NULL);
         test_struct_t *client_data = (test_struct_t *) data_buf;
+
+        //Output data received
         printf("Thread %d. Client data: Name: %s Age: %d Group_N: %d. Timestamp:%s", d->thread_id, client_data->name,
                client_data->age,
                client_data->group_number, ctime(&clk));
 
+        //Handle data
         char buf[20];
         result_struct_t result;
         int cur_int = 0;
@@ -70,8 +75,12 @@ void *handle_socket(void *data) {
         cur_int += strlen(buf);
         result.result[cur_int] = ')';
         result.result[cur_int + 1] = '\0';
+
+        //Sleep for 10 sec
         sleep(10);
         clk = time(NULL);
+
+        //Slept, output result and sent it to the client
         printf("Thread %d, has slept. Result to send: %s. Timestamp:%s", d->thread_id, result.result, ctime(&clk));
         if ((bytes_sent = sendto(d->socket_id, &result, sizeof(result_struct_t), 0,
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr))) == -1) {
@@ -82,27 +91,31 @@ void *handle_socket(void *data) {
 }
 
 int setup_connection() {
+    //Create socket and server addresses for binding
     int server_socket;
     struct sockaddr_in server_addr;
+    //Array for storing all our threads
     pthread_t threads[THREAD_N];
 
-
+    //Create server socket that is datagram for udp transmissions
     if ((server_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         fprintf(stderr, "failed to create a socket errno: %d", errno);
         return -1;
     }
 
     memset(&server_addr, 0, sizeof(server_addr)); //Clean up server address
+    // Set server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-
+    //Bind server socket to server address we set up earlier
     if ((bind(server_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1)) {
         fprintf(stderr, "failed to bind errno: %d", errno);
         return -1;
     }
 
+    //Create N threads for our server
     for (int i = 0; i < THREAD_N; i++) {
         struct handle_data *data = (struct handle_data *) malloc(sizeof(struct handle_data));
         data->thread_id = i + 1;
@@ -110,9 +123,11 @@ int setup_connection() {
         pthread_create(&threads[i], NULL, handle_socket, (void *) data);
     }
 
+    //Server will not close while at least one of the threads is alive
     for (int j = 0; j < THREAD_N; j++) {
         pthread_join(threads[j], NULL);
     }
+    return 0;
 }
 
 int main(void) {
