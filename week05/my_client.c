@@ -11,7 +11,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define SERVER_IP_ADDRESS "localhost"
+#define SERVER_IP_ADDRESS "192.168.4.2"
 #define SERVER_PORT     2000 //Server will be running on this port number
 #define TRUE 1
 

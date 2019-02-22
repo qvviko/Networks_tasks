@@ -46,10 +46,9 @@ void *handle_socket(void *data) {
         test_struct_t *client_data = (test_struct_t *) data_buf;
 
         //Output data received
-        printf("Thread %d. Client data: Name: %s Age: %d Group_N: %d. Timestamp:%s", d->thread_id, client_data->name,
-               client_data->age,
-               client_data->group_number, ctime(&clk));
-
+        printf("Thread %d. Client: %s:%u. Client data: Name: %s Age: %d Group_N: %d. Timestamp:%s", d->thread_id,
+               inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), client_data->name,
+               client_data->age, client_data->group_number, ctime(&clk));
         //Handle data
         char buf[20];
         result_struct_t result;
@@ -81,7 +80,8 @@ void *handle_socket(void *data) {
         clk = time(NULL);
 
         //Slept, output result and sent it to the client
-        printf("Thread %d, has slept. Result to send: %s. Timestamp:%s", d->thread_id, result.result, ctime(&clk));
+        printf("Thread %d, has slept. Result to send to client %s:%u: %s. Timestamp:%s", d->thread_id,
+               inet_ntoa(client_addr.sin_addr), htons(client_addr.sin_port), result.result, ctime(&clk));
         if ((bytes_sent = sendto(d->socket_id, &result, sizeof(result_struct_t), 0,
                                  (struct sockaddr *) &client_addr, sizeof(struct sockaddr))) == -1) {
             fprintf(stderr, "failed to sent data errno: %d", errno);
