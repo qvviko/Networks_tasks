@@ -9,8 +9,22 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
 
-struct Node {
+#define CONNECT_N       10 //Number of connections at the same time
+
+typedef struct Peer {
     char name[25];
     struct sockaddr_in addr;
-};
+} Peer;
+
+typedef struct Node {
+    Peer self;
+    Peer peer_list[CONNECT_N];
+} Node;
+
+void *initialise_client(void *);
+
+void *initialise_server(void *);
+
+void *greet_client(void *);
