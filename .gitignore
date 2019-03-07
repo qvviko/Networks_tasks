@@ -13,7 +13,6 @@ out
 
 # Cmake
 cmake-build-debug
-CMakeLists.txt
 
 # Dolphin
 .directory

@@ -1,7 +1,7 @@
 #include "node.h"
 
 #define SERVER_PORT     1337 // Port for the server
-#define SERVER_IP_ADDRESS "localhost"
+#define SERVER_IP_ADDRESS "192.168.1.58"
 #define TRUE 1
 #define FALSE 0
 
@@ -57,8 +57,6 @@ void *initialise_server(void *data) {
         exit(EXIT_FAILURE);
     }
     while (TRUE) {
-        printf("Server \n");
-        sleep(1);
         if (current_connect < CONNECT_N) {
             struct greet_client_data c_data;
             client_fd[current_connect] = accept(server_socket,
@@ -120,7 +118,7 @@ void *initialise_client(void *data) {
 
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-        fprintf(stderr, "failed to number errno:%d", errno);
+        fprintf(stderr, "failed to connect to main server errno:%d", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -143,7 +141,7 @@ void *initialise_client(void *data) {
         Peer new_node = node_list[i];
         if (!member(new_node)) {
             if (connect(client_socket, (struct sockaddr *) &new_node.addr, addr_len) == -1) {
-                fprintf(stderr, "failed to number errno:%d", errno);
+                fprintf(stderr, "failed to connect to new node errno:%d", errno);
                 exit(EXIT_FAILURE);
             }
         }
