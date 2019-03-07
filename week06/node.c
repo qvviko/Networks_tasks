@@ -43,7 +43,8 @@ void *initialise_server(void *data) {
     // Set server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
+    server_addr.sin_addr = *((struct in_addr *) host->h_addr);
 
     //Bind server socket to server
     if ((bind(server_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1)) {
