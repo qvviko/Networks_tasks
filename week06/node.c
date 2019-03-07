@@ -14,7 +14,7 @@ struct greet_client_data {
 
 int member(Peer element) {
     for (int i = 0; i < CONNECT_N; i++) {
-        if (strcmp((char *) &this_node.peer_list[i], (char *) &element) == 0) {
+        if (memcmp((char *) &this_node.peer_list[i], (char *) &element) == 0) {
             return TRUE;
         }
     }
@@ -139,7 +139,7 @@ void *initialise_client(void *data) {
     //Connect to all new nodes
     for (int i = 0; i < CONNECT_N; ++i) {
         Peer new_node = node_list[i];
-        if (!member(new_node) && !(memcmp(&new_node.addr, &this_node.self.addr, sizeof(struct sockaddr_in)))) {
+        if (!member(new_node)) {
             if (connect(client_socket, (struct sockaddr *) &new_node.addr, addr_len) == -1) {
                 fprintf(stderr, "failed to connect to new node errno:%d", errno);
                 exit(EXIT_FAILURE);
