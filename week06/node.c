@@ -1,10 +1,11 @@
 #include "node.h"
 
 #define SERVER_PORT     1337 // Port for the server
-#define SERVER_IP_ADDRESS "localhost"
+#define SERVER_IP_ADDRESS "192.168.1.58"
 #define TRUE 1
 
 Node this_node;
+int current_connect;
 struct greet_client_data {
     int client_socket;
     struct sockaddr_in client_addr;
@@ -14,7 +15,7 @@ struct greet_client_data {
 void *initialise_server(void *data) {
 
     //Create socket and server addresses for binding
-    int server_socket, current_connect, client_fd[CONNECT_N];
+    int server_socket, client_fd[CONNECT_N];
     pthread_t clients[CONNECT_N];
     socklen_t addrlen;
     struct sockaddr_in server_addr;
@@ -104,7 +105,6 @@ void *initialise_client(void *data) {
         fprintf(stderr, "error on send errno: %d", errno);
         exit(EXIT_FAILURE);
     }
-
 }
 
 
@@ -115,6 +115,15 @@ int main(void) {
     read(0, this_node.self.name, sizeof(this_node.self.name));
     printf("Ok! Your name is:%s\n", this_node.self.name);
     pthread_create(&server, NULL, initialise_server, NULL);
-    pthread_create(&client, NULL, initialise_client, NULL);
-    sleep(10);
+    while (TRUE) {
+        printf("What do you want to do?\n");
+        printf("To connect - 1, To wait - 2\n");
+        char buf[2];
+        read(0, buf, sizeof(char));
+        buf[1] = '\0';
+        if (strcmp(buf, "1") == 0) {
+            pthread_create(&client, NULL, initialise_client, NULL);
+        }
+        sleep(1);
+    }
 }
