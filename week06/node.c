@@ -119,7 +119,7 @@ int main(void) {
         printf("What do you want to do?\n");
         printf("To connect - 1, To wait - 2\n");
         char buf[2];
-        read(0, buf, sizeof(char));
+        read(0, buf, sizeof(buf));
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
             pthread_create(&client, NULL, initialise_client, NULL);
