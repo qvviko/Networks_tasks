@@ -144,6 +144,8 @@ void *initialise_client(void *data) {
         if (!member(new_node) &&
             strcmp(((struct sockaddr *) &this_node.self.addr)->sa_data,
                    ((struct sockaddr *) &new_node.addr)->sa_data) != 0) {
+            printf("Got new node! Name:%s:%s:%u\n", new_node.name, inet_ntoa(new_node.addr.sin_addr),
+                   htons(new_node.addr.sin_port));
             if (connect(client_socket, (struct sockaddr *) &new_node.addr, addr_len) == -1) {
                 fprintf(stderr, "failed to connect to new node errno:%d", errno);
                 exit(EXIT_FAILURE);
