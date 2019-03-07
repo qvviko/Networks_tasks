@@ -43,8 +43,7 @@ void *initialise_server(void *data) {
     // Set server address
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
-    struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
-    server_addr.sin_addr = *((struct in_addr *) host->h_addr);
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP_ADDRESS);
 
     //Bind server socket to server
     if ((bind(server_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1)) {
@@ -52,6 +51,7 @@ void *initialise_server(void *data) {
         exit(EXIT_FAILURE);
     }
     this_node.self.addr = server_addr;
+    this_node.self.addr.sin_addr.s_addr
 
     //Begin listening
     if (listen(server_socket, CONNECT_N) < 0) {
