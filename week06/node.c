@@ -146,7 +146,11 @@ void *initialise_client(void *data) {
                    ((struct sockaddr *) &new_node.addr)->sa_data) != 0) {
             printf("Got new node! Name:%s:%s:%u\n", new_node.name, inet_ntoa(new_node.addr.sin_addr),
                    htons(new_node.addr.sin_port));
-            if (connect(client_socket, (struct sockaddr *) &new_node.addr, addr_len) == -1) {
+            struct sockaddr_in con;
+            con.sin_family = AF_INET;
+            con.sin_port = new_node.addr.sin_port;
+            con.sin_addr = new_node.addr.sin_addr;
+            if (connect(client_socket, (struct sockaddr *) &con, sizeof(struct sockaddr)) == -1) {
                 fprintf(stderr, "failed to connect to new node errno:%d", errno);
                 exit(EXIT_FAILURE);
             }
