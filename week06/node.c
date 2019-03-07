@@ -7,7 +7,8 @@
 #define FALSE 0
 
 Node this_node;
-int current_connect;
+int current_connect, cur_client_fd;
+int client_con_fds[CONNECT_N];
 struct greet_client_data {
     int client_socket, number;
     struct sockaddr_in client_addr;
@@ -100,18 +101,18 @@ void *greet_client(void *data) {
 
 void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
-    int client_socket;
     Peer node_list[CONNECT_N];
     ssize_t bytes_received, bytes_sent;
     struct sockaddr_in destination_addr;
     socklen_t addr_len = sizeof(struct sockaddr);
 
     //Create client socket
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+    if ((client_con_fds[cur_client_fd] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
         fprintf(stderr, "failed to create a socket errno: %d", errno);
         exit(EXIT_FAILURE);
     }
-
+    int client_socket = client_con_fds[cur_client_fd];
+    cur_client_fd++;
     // Set up destination address (address of the server)
     destination_addr.sin_family = AF_INET;
     destination_addr.sin_port = htons(SERVER_PORT);
@@ -150,16 +151,18 @@ void *initialise_client(void *data) {
             con.sin_family = AF_INET;
             con.sin_port = new_node.addr.sin_port;
             con.sin_addr = new_node.addr.sin_addr;
-            if (connect(client_socket, (struct sockaddr *) &con, sizeof(struct sockaddr)) == -1) {
+            if (connect(client_con_fds[cur_client_fd], (struct sockaddr *) &con, sizeof(struct sockaddr)) == -1) {
                 fprintf(stderr, "failed to connect to new node errno:%d", errno);
                 exit(EXIT_FAILURE);
             }
+            cur_client_fd++;
         }
     }
     if (bytes_received == -1) {
         fprintf(stderr, "error on receive errno: %d", errno);
         exit(EXIT_FAILURE);
     }
+    return 0;
 }
 
 
