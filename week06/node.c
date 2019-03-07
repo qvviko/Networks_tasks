@@ -105,14 +105,14 @@ void *initialise_client(void *data) {
     ssize_t bytes_received, bytes_sent;
     struct sockaddr_in destination_addr;
     socklen_t addr_len = sizeof(struct sockaddr);
-
-    //Create client socket
-    if ((client_con_fds[cur_client_fd] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        fprintf(stderr, "failed to create a socket errno: %d", errno);
-        exit(EXIT_FAILURE);
+    for (int j = 0; j < CONNECT_N; ++j) {
+        //Create client socket
+        if ((client_con_fds[j] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+            fprintf(stderr, "failed to create a socket errno: %d", errno);
+            exit(EXIT_FAILURE);
+        }
     }
     int client_socket = client_con_fds[cur_client_fd];
-    cur_client_fd++;
     // Set up destination address (address of the server)
     destination_addr.sin_family = AF_INET;
     destination_addr.sin_port = htons(SERVER_PORT);
@@ -124,7 +124,7 @@ void *initialise_client(void *data) {
         fprintf(stderr, "failed to connect to main server errno:%d", errno);
         exit(EXIT_FAILURE);
     }
-
+    cur_client_fd++;
     //Send data about self
     bytes_sent = sendto(client_socket, (void *) &this_node, sizeof(this_node), 0,
                         (struct sockaddr *) &destination_addr,
