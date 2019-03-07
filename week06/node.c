@@ -14,7 +14,7 @@ struct greet_client_data {
 
 int member(Peer element) {
     for (int i = 0; i < CONNECT_N; i++) {
-        if (memcmp((char *) &this_node.peer_list[i], (char *) &element) == 0) {
+        if (memcmp(&this_node.peer_list[i], &element, sizeof(element)) == 0) {
             return TRUE;
         }
     }
