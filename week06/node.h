@@ -12,6 +12,9 @@
 #include <pthread.h>
 
 #define CONNECT_N       10 //Number of connections at the same time
+#define PING 55
+#define ACK 56
+#define ADD 50
 
 typedef struct Peer {
     char name[25];
@@ -19,15 +22,19 @@ typedef struct Peer {
     uint16_t port;
 } Peer;
 
-typedef struct PeerNode {
+struct PeerNode {
     Peer self;
     Peer peer_list[CONNECT_N];
-} Node;
+};
+
+struct Protocol {
+    short type;
+};
 
 void *initialise_client(void *);
 
 void *initialise_server(void *);
 
-void *greet_client(void *);
+void *handle_client(void *);
 
 void *ping_clients(void *);
