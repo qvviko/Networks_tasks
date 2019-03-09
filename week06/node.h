@@ -16,7 +16,7 @@
 typedef struct Peer {
     char name[25];
     char ip_address[20];
-    unsigned int port;
+    uint16_t port;
 } Peer;
 
 typedef struct PeerNode {
@@ -29,3 +29,5 @@ void *initialise_client(void *);
 void *initialise_server(void *);
 
 void *greet_client(void *);
+
+void *ping_clients(void *);
