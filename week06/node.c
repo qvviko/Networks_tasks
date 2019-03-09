@@ -1,13 +1,13 @@
 #include "node.h"
 
 #define SERVER_PORT     1337 // Port for the server
-#define SERVER_IP_ADDRESS "localhost"
-#define MY_IP_ADDRESS "localhost"
+#define SERVER_IP_ADDRESS "192.168.1.52"
+#define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 2
 struct PeerNode this_node;
-int current_connect, cur_client_fd;
+int current_connect;
 
 struct greet_client_data {
     int client_socket, number;
@@ -27,7 +27,7 @@ int member(Peer element) {
 void *initialise_server(void *data) {
 
     //Create socket and server addresses for binding
-    int server_socket, client_fd[CONNECT_N];
+    int server_socket, clients_fd;
     pthread_t clients[CONNECT_N], pinger;
     socklen_t addrlen;
     struct sockaddr_in server_addr;
@@ -68,10 +68,10 @@ void *initialise_server(void *data) {
         if (current_connect < CONNECT_N) {
             struct greet_client_data c_data;
             struct sockaddr_in client_addr;
-            client_fd[current_connect] = accept(server_socket,
-                                                (struct sockaddr *) &client_addr,
-                                                &addrlen);
-            c_data.client_socket = client_fd[current_connect];
+            clients_fd = accept(server_socket,
+                                (struct sockaddr *) &client_addr,
+                                &addrlen);
+            c_data.client_socket = clients_fd;
             c_data.client_addr = client_addr;
             c_data.number = current_connect;
             pthread_create(&clients[current_connect], NULL, greet_client, (void *) &c_data);
