@@ -95,6 +95,7 @@ void *ping_clients(void *data) {
         for (int i = 0; i < CONNECT_N; ++i) {
             p.type = PING;
             if (memcmp(&this_node.peer_list[i], &null, sizeof(this_node.peer_list[i])) != 0) {
+                printf("pinging.. \n");
                 if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
                     fprintf(stderr, "failed to create a socket errno: %d", errno);
                     exit(EXIT_FAILURE);
@@ -104,9 +105,15 @@ void *ping_clients(void *data) {
                 server_addr.sin_addr.s_addr = inet_addr(this_node.peer_list[i].ip_address);
 
                 if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
-                    //TODO: check correct errno to remove server addr
-                    fprintf(stderr, "failed to connect to main server errno:%d", errno);
-                    exit(EXIT_FAILURE);
+                    if (errno == ECONNREFUSED) {
+                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
+                        printf("Node Name:%s:%s:%u left\n", this_node.peer_list[i].name,
+                               this_node.peer_list[i].ip_address,
+                               this_node.peer_list[i].port);
+                    } else {
+                        fprintf(stderr, "failed to connect to ping errno:%d", errno);
+                        exit(EXIT_FAILURE);
+                    }
                 }
 
                 //Send protocol type
@@ -114,7 +121,7 @@ void *ping_clients(void *data) {
                                     (struct sockaddr *) &server_addr,
                                     sizeof(struct sockaddr));
                 if (bytes_sent == -1) {
-                    fprintf(stderr, "error on send errno: %d", errno);
+                    fprintf(stderr, "error on send ping errno: %d", errno);
                     exit(EXIT_FAILURE);
                 }
 
@@ -129,7 +136,7 @@ void *ping_clients(void *data) {
                                this_node.peer_list[i].ip_address,
                                this_node.peer_list[i].port);
                     } else {
-                        fprintf(stderr, "error on send errno: %d", errno);
+                        fprintf(stderr, "error on receive ping errno: %d", errno);
                         exit(EXIT_FAILURE);
                     }
                 }
@@ -158,6 +165,7 @@ void *handle_client(void *data) {
         p.type = ACK;
         sendto(client_data->client_socket, (void *) &p, sizeof(p), 0, (struct sockaddr *) &client_data->client_addr,
                sizeof(struct sockaddr));
+        printf("Got pinged, answering\n");
     } else if (p.type == ADD) {
         //Receive data about self from new client
         received_bytes = recvfrom(client_data->client_socket, (void *) &new_node, sizeof(new_node), 0,
