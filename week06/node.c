@@ -106,8 +106,8 @@ void *greet_client(void *data) {
         printf("Got new node! Name:%s:%s:%u\n", new_node.self.name, new_node.self.ip_address,
                new_node.self.port);
         //Copy name and address of the client
-        memcpy(this_node.peer_list[client_data->number].name, new_node.self.name, sizeof(new_node.self.name));
-        strcpy(this_node.peer_list[client_data->number].ip_address, new_node.self.name);
+        strcpy(this_node.peer_list[client_data->number].name, new_node.self.name);
+        strcpy(this_node.peer_list[client_data->number].ip_address, new_node.self.ip_address);
         this_node.peer_list[client_data->number].port = new_node.self.port;
         current_connect++;
     }
