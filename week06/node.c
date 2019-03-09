@@ -106,10 +106,11 @@ void *ping_clients(void *data) {
 
                 if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
                     if (errno == ECONNREFUSED) {
-                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
                         printf("Node Name:%s:%s:%u left\n", this_node.peer_list[i].name,
                                this_node.peer_list[i].ip_address,
                                this_node.peer_list[i].port);
+                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
+                        continue;
                     } else {
                         fprintf(stderr, "failed to connect to ping errno:%d", errno);
                         exit(EXIT_FAILURE);
@@ -131,10 +132,11 @@ void *ping_clients(void *data) {
                                           &addr_len);
                 if (bytes_received == -1) {
                     if (errno == ETIMEDOUT) {
-                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
                         printf("Node Name:%s:%s:%u left\n", this_node.peer_list[i].name,
                                this_node.peer_list[i].ip_address,
                                this_node.peer_list[i].port);
+                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
+                        continue;
                     } else {
                         fprintf(stderr, "error on receive ping errno: %d", errno);
                         exit(EXIT_FAILURE);
@@ -210,6 +212,10 @@ void *initialise_client(void *data) {
     }
 
     // Set up destination address (address of the server)
+    current_connect++;
+    strcpy(this_node.peer_list[current_connect-1].ip_address, SERVER_IP_ADDRESS);
+    this_node.peer_list[current_connect-1].port = SERVER_PORT;
+
     destination_addr.sin_family = AF_INET;
     destination_addr.sin_port = htons(SERVER_PORT);
     struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
