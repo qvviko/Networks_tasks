@@ -1,14 +1,14 @@
 #include "node.h"
 
 #define SERVER_PORT     1337 // Port for the server
-#define SERVER_IP_ADDRESS "192.168.1.58"
-#define MY_IP_ADDRESS "192.168.1.67"
+#define SERVER_IP_ADDRESS "localhost"
+#define MY_IP_ADDRESS "localhost"
 #define TRUE 1
 #define FALSE 0
-
-Node this_node;
+#define PING_INTERVAL 2
+struct PeerNode this_node;
 int current_connect, cur_client_fd;
-int client_con_fds[CONNECT_N];
+
 struct greet_client_data {
     int client_socket, number;
     struct sockaddr_in client_addr;
@@ -52,13 +52,16 @@ void *initialise_server(void *data) {
         fprintf(stderr, "failed to bind errno: %d", errno);
         exit(EXIT_FAILURE);
     }
-    this_node.self.addr = server_addr;
+    // Copy node information
+    strcpy(this_node.self.ip_address, MY_IP_ADDRESS);
+    this_node.self.port = SERVER_PORT;
 
     //Begin listening
     if (listen(server_socket, CONNECT_N) < 0) {
         fprintf(stderr, "failed to listen errno: %d", errno);
         exit(EXIT_FAILURE);
     }
+
     while (TRUE) {
         if (current_connect < CONNECT_N) {
             struct greet_client_data c_data;
@@ -74,11 +77,18 @@ void *initialise_server(void *data) {
     }
 }
 
+void *ping_clients(void *data) {
+    while (TRUE) {
+        sleep(PING_INTERVAL);
+        //TODO: PING
+    }
+}
+
 void *greet_client(void *data) {
     struct greet_client_data *client_data = (struct greet_client_data *) data;
     socklen_t addr_len;
     ssize_t recieved_bytes;
-    Node new_node;
+    struct PeerNode new_node;
     //Receive data about self from new client
     recieved_bytes = recvfrom(client_data->client_socket, (void *) &new_node, sizeof(new_node), 0,
                               (struct sockaddr *) &client_data->client_addr, &addr_len);
@@ -86,13 +96,13 @@ void *greet_client(void *data) {
         fprintf(stderr, "Error on recv errno: %d", errno);
         exit(EXIT_FAILURE);
     }
-
-    printf("Got new node! Name:%s:%s:%u\n", new_node.self.name, inet_ntoa(new_node.self.addr.sin_addr),
-           htons(new_node.self.addr.sin_port));
-    //Copy name and address of the client
-    memcpy(this_node.peer_list[client_data->number].name, new_node.self.name, sizeof(new_node.self.name));
-    this_node.peer_list[client_data->number].addr = new_node.self.addr;
-
+    if (!member(new_node.self)) {
+        printf("Got new node! Name:%s:%s:%u\n", new_node.self.name, inet_ntoa(new_node.self.addr.sin_addr),
+               htons(new_node.self.addr.sin_port));
+        //Copy name and address of the client
+        memcpy(this_node.peer_list[client_data->number].name, new_node.self.name, sizeof(new_node.self.name));
+        this_node.peer_list[client_data->number].addr = new_node.self.addr;
+    }
     //Send known nodes to the new client
     sendto(client_data->client_socket, this_node.peer_list, sizeof(this_node.peer_list), 0,
            (struct sockaddr *) &client_data->client_addr, sizeof(struct sockaddr));
@@ -104,15 +114,15 @@ void *initialise_client(void *data) {
     Peer node_list[CONNECT_N];
     ssize_t bytes_received, bytes_sent;
     struct sockaddr_in destination_addr;
+    int client_socket;
+
+    // Create client's socket from which he will connect
     socklen_t addr_len = sizeof(struct sockaddr);
-    for (int j = 0; j < CONNECT_N; ++j) {
-        //Create client socket
-        if ((client_con_fds[j] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-            fprintf(stderr, "failed to create a socket errno: %d", errno);
-            exit(EXIT_FAILURE);
-        }
+    if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+        fprintf(stderr, "failed to create a socket errno: %d", errno);
+        exit(EXIT_FAILURE);
     }
-    int client_socket = client_con_fds[cur_client_fd];
+
     // Set up destination address (address of the server)
     destination_addr.sin_family = AF_INET;
     destination_addr.sin_port = htons(SERVER_PORT);
@@ -124,7 +134,7 @@ void *initialise_client(void *data) {
         fprintf(stderr, "failed to connect to main server errno:%d", errno);
         exit(EXIT_FAILURE);
     }
-    cur_client_fd++;
+
     //Send data about self
     bytes_sent = sendto(client_socket, (void *) &this_node, sizeof(this_node), 0,
                         (struct sockaddr *) &destination_addr,
@@ -138,8 +148,13 @@ void *initialise_client(void *data) {
     bytes_received = recvfrom(client_socket, (void *) &node_list, sizeof(this_node), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
+    if (bytes_received == -1) {
+        fprintf(stderr, "error on recieve errno: %d", errno);
+        exit(EXIT_FAILURE);
+    }
+    close(client_socket);
 
-    //Connect to all new nodes
+    //Connect to all new nodes TODO:
     for (int i = 0; i < CONNECT_N; ++i) {
         Peer new_node = node_list[i];
         if (!member(new_node) &&
@@ -157,10 +172,6 @@ void *initialise_client(void *data) {
             }
             cur_client_fd++;
         }
-    }
-    if (bytes_received == -1) {
-        fprintf(stderr, "error on receive errno: %d", errno);
-        exit(EXIT_FAILURE);
     }
     return 0;
 }

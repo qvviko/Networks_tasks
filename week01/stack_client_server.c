@@ -9,10 +9,10 @@
 #define BUF_SIZE 1024
 
 // Skeleton for the stack
-struct Node {
+struct PeerNode {
     int data;
-    struct Node *next;
-    struct Node *prev;
+    struct PeerNode *next;
+    struct PeerNode *prev;
 };
 
 int peek();
@@ -29,7 +29,7 @@ void create();
 
 void stack_size();
 
-struct Node *stack = NULL; //Our stack, Empty at the beginning
+struct PeerNode *stack = NULL; //Our stack, Empty at the beginning
 static int size_of_the_stack = 0;
 
 /*
@@ -71,7 +71,7 @@ void push(int data) {
         printf("Stack is not created\n");
     } else {
         //Create new node
-        struct Node *new_node = (struct Node *) malloc(sizeof(struct Node));
+        struct PeerNode *new_node = (struct PeerNode *) malloc(sizeof(struct PeerNode));
         if (new_node == NULL) {
             printf("No space for the new node\n");
         }
@@ -83,7 +83,7 @@ void push(int data) {
         if (size_of_the_stack == 0) {
             stack = new_node;
         } else {
-            struct Node *old = stack;
+            struct PeerNode *old = stack;
             stack->prev = new_node;
             new_node->next = stack;
             stack = new_node;
@@ -106,15 +106,15 @@ void silent_pop() {
     } else if (!size_of_the_stack) {
         return;
     } else {
-        struct Node *old_node = stack;
+        struct PeerNode *old_node = stack;
         stack = stack->next;
         free(old_node);
 
         if (stack != NULL) {
             stack->prev = NULL;
         } else {
-            //If stack is now empty create free Node
-            stack = (struct Node *) malloc(sizeof(struct Node));
+            //If stack is now empty create free PeerNode
+            stack = (struct PeerNode *) malloc(sizeof(struct PeerNode));
         }
         --size_of_the_stack;
 
@@ -131,15 +131,15 @@ void pop() {
     } else if (!size_of_the_stack) {
         printf("Stack is empty\n");;
     } else {
-        struct Node *old_node = stack;
+        struct PeerNode *old_node = stack;
         stack = stack->next;
         free(old_node);
 
         if (stack != NULL) {
             stack->prev = NULL;
         } else {
-            //If stack is now empty create free Node
-            stack = (struct Node *) malloc(sizeof(struct Node));
+            //If stack is now empty create free PeerNode
+            stack = (struct PeerNode *) malloc(sizeof(struct PeerNode));
         }
         printf("Top element popped\n");
         --size_of_the_stack;
@@ -172,7 +172,7 @@ void display() {
     } else if (size_of_the_stack == 0) {
         printf("Stack is empty\n");
     } else {
-        struct Node *cur = stack;
+        struct PeerNode *cur = stack;
         printf("Current state of the stack is: \n");
         do {
             printf("%d ", cur->data);
@@ -188,7 +188,7 @@ void display() {
 void create() {
     if (stack == NULL) {
         //If stack is empty
-        stack = (struct Node *) malloc(sizeof(struct Node));
+        stack = (struct PeerNode *) malloc(sizeof(struct PeerNode));
     } else {
         //If stack is not empty - clear
         while (size_of_the_stack != 0) {

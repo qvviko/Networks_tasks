@@ -15,10 +15,11 @@
 
 typedef struct Peer {
     char name[25];
-    struct sockaddr_in addr;
+    char ip_address[20];
+    unsigned int port;
 } Peer;
 
-typedef struct Node {
+typedef struct PeerNode {
     Peer self;
     Peer peer_list[CONNECT_N];
 } Node;
