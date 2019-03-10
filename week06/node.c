@@ -5,7 +5,7 @@
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
-#define PING_INTERVAL 2
+#define PING_INTERVAL 3
 struct PeerNode this_node;
 int current_connect;
 
@@ -200,7 +200,7 @@ void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
     Peer node_list[CONNECT_N];
     ssize_t bytes_received, bytes_sent;
-    struct sockaddr_in destination_addr;
+    struct sockaddr_in destination_addr = *(struct sockaddr_in *) data;
     int client_socket;
     struct Protocol p;
 
@@ -213,13 +213,8 @@ void *initialise_client(void *data) {
 
     // Set up destination address (address of the server)
     current_connect++;
-    strcpy(this_node.peer_list[current_connect-1].ip_address, SERVER_IP_ADDRESS);
-    this_node.peer_list[current_connect-1].port = SERVER_PORT;
-
-    destination_addr.sin_family = AF_INET;
-    destination_addr.sin_port = htons(SERVER_PORT);
-    struct hostent *host = gethostbyname(SERVER_IP_ADDRESS);
-    destination_addr.sin_addr = *((struct in_addr *) host->h_addr);
+    strcpy(this_node.peer_list[current_connect - 1].ip_address, inet_ntoa(destination_addr.sin_addr));
+    this_node.peer_list[current_connect - 1].port = ntohs(destination_addr.sin_port);
 
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
@@ -288,13 +283,21 @@ int main(void) {
     printf("Ok! Your name is:%s\n", this_node.self.name);
     pthread_create(&server, NULL, initialise_server, NULL);
     while (TRUE) {
-        printf("What do you want to do?\n");
-        printf("To connect - 1, To wait - 2\n");
+        struct sockaddr_in dest;
+        char ip[20];
+        uint16_t port;
         char buf[2];
+        printf("What do you want to do?\n");
+        printf("To connect - 1. (Server works on background)\n");
         read(0, buf, sizeof(buf));
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
-            pthread_create(&client, NULL, initialise_client, NULL);
+            printf("Enter IP:Port of the server\n");
+            dest.sin_family = AF_INET;
+            scanf("%s:%hu\n", ip, &port);
+            dest.sin_port = htons(port);
+            dest.sin_addr.s_addr = inet_addr(ip);
+            pthread_create(&client, NULL, initialise_client, (void *) &dest);
         }
         sleep(1);
     }
