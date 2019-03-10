@@ -1,6 +1,6 @@
 #include "node.h"
 
-#define SERVER_PORT     1337 // Port for the server
+#define SERVER_PORT     1333 // Port for the server
 #define SERVER_IP_ADDRESS "192.168.1.52"
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
@@ -99,6 +99,8 @@ void *ping_clients(void *data) {
                     fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
+                printf("Pinging Name:%s:%s:%u by %d \n", this_node.peer_list[i].name, this_node.peer_list[i].ip_address,
+                       this_node.peer_list[i].port, connect_fd);
                 server_addr.sin_family = AF_INET;
                 server_addr.sin_port = htons(this_node.peer_list[i].port);
                 server_addr.sin_addr.s_addr = inet_addr(this_node.peer_list[i].ip_address);
