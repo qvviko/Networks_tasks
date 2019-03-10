@@ -95,7 +95,6 @@ void *ping_clients(void *data) {
         for (int i = 0; i < CONNECT_N; ++i) {
             p.type = PING;
             if (memcmp(&this_node.peer_list[i], &null, sizeof(this_node.peer_list[i])) != 0) {
-                printf("pinging.. \n");
                 if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
                     fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
                     exit(EXIT_FAILURE);
@@ -110,6 +109,7 @@ void *ping_clients(void *data) {
                                this_node.peer_list[i].ip_address,
                                this_node.peer_list[i].port);
                         memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
+                        close(connect_fd);
                         continue;
                     } else {
                         fprintf(stderr, "failed to connect to ping errno:%d\n", errno);
@@ -136,12 +136,14 @@ void *ping_clients(void *data) {
                                this_node.peer_list[i].ip_address,
                                this_node.peer_list[i].port);
                         memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
+                        close(connect_fd);
                         continue;
                     } else {
                         fprintf(stderr, "error on receive ping errno: %d\n", errno);
                         exit(EXIT_FAILURE);
                     }
                 }
+                close(connect_fd);
             }
         }
     }
@@ -219,6 +221,8 @@ void *initialise_client(void *data) {
         current_connect++;
         strcpy(this_node.peer_list[current_connect - 1].ip_address, inet_ntoa(destination_addr.sin_addr));
         this_node.peer_list[current_connect - 1].port = ntohs(destination_addr.sin_port);
+        printf("Got new node! Name:%s:%u\n", this_node.peer_list[current_connect - 1].ip_address,
+               this_node.peer_list[current_connect - 1].port);
     }
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
@@ -284,7 +288,7 @@ int main(void) {
     printf("How should i call you?\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
     this_node.self.name[bytes_read - 1] = '\0';
-    printf("Ok! Your name is:%s\n", this_node.self.name);
+    printf("Ok! Your name is: %s\n", this_node.self.name);
     pthread_create(&server, NULL, initialise_server, NULL);
     while (TRUE) {
         struct sockaddr_in dest;
