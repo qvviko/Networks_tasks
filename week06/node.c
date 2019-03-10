@@ -37,7 +37,7 @@ void *initialise_server(void *data) {
 
     //Create server socket that is datagram for tcp transmissions
     if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        fprintf(stderr, "failed to create a socket errno: %d", errno);
+        fprintf(stderr, "failed to create a server socket errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -49,7 +49,7 @@ void *initialise_server(void *data) {
 
     //Bind server socket to server
     if ((bind(server_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1)) {
-        fprintf(stderr, "failed to bind errno: %d", errno);
+        fprintf(stderr, "failed to bind server socket errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -60,7 +60,7 @@ void *initialise_server(void *data) {
 
     //Begin listening
     if (listen(server_socket, CONNECT_N) < 0) {
-        fprintf(stderr, "failed to listen errno: %d", errno);
+        fprintf(stderr, "failed to listen server errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
     pthread_create(&pinger, NULL, ping_clients, NULL);
@@ -97,7 +97,7 @@ void *ping_clients(void *data) {
             if (memcmp(&this_node.peer_list[i], &null, sizeof(this_node.peer_list[i])) != 0) {
                 printf("pinging.. \n");
                 if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-                    fprintf(stderr, "failed to create a socket errno: %d", errno);
+                    fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
                 server_addr.sin_family = AF_INET;
@@ -112,7 +112,7 @@ void *ping_clients(void *data) {
                         memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
                         continue;
                     } else {
-                        fprintf(stderr, "failed to connect to ping errno:%d", errno);
+                        fprintf(stderr, "failed to connect to ping errno:%d\n", errno);
                         exit(EXIT_FAILURE);
                     }
                 }
@@ -122,7 +122,7 @@ void *ping_clients(void *data) {
                                     (struct sockaddr *) &server_addr,
                                     sizeof(struct sockaddr));
                 if (bytes_sent == -1) {
-                    fprintf(stderr, "error on send ping errno: %d", errno);
+                    fprintf(stderr, "error on send ping errno: %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
 
@@ -138,7 +138,7 @@ void *ping_clients(void *data) {
                         memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
                         continue;
                     } else {
-                        fprintf(stderr, "error on receive ping errno: %d", errno);
+                        fprintf(stderr, "error on receive ping errno: %d\n", errno);
                         exit(EXIT_FAILURE);
                     }
                 }
@@ -158,7 +158,7 @@ void *handle_client(void *data) {
     received_bytes = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
                               (struct sockaddr *) &client_data->client_addr, &addr_len);
     if (received_bytes == -1) {
-        fprintf(stderr, "Error on recv errno: %d", errno);
+        fprintf(stderr, "Error on recv protocol errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -174,7 +174,7 @@ void *handle_client(void *data) {
                                   (struct sockaddr *) &client_data->client_addr, &addr_len);
 
         if (received_bytes == -1) {
-            fprintf(stderr, "Error on recv errno: %d", errno);
+            fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
 
@@ -207,7 +207,7 @@ void *initialise_client(void *data) {
     // Create client's socket from which he will connect
     socklen_t addr_len = sizeof(struct sockaddr);
     if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        fprintf(stderr, "failed to create a socket errno: %d", errno);
+        fprintf(stderr, "failed to create a client socket errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -223,7 +223,7 @@ void *initialise_client(void *data) {
 
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-        fprintf(stderr, "failed to connect to main server errno:%d", errno);
+        fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
         exit(EXIT_FAILURE);
     }
     p.type = ADD;
@@ -232,7 +232,7 @@ void *initialise_client(void *data) {
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
     if (bytes_sent == -1) {
-        fprintf(stderr, "error on send errno: %d", errno);
+        fprintf(stderr, "error on send protocol on client errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -241,7 +241,7 @@ void *initialise_client(void *data) {
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
     if (bytes_sent == -1) {
-        fprintf(stderr, "error on send errno: %d", errno);
+        fprintf(stderr, "error on send self info errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
 
@@ -250,7 +250,7 @@ void *initialise_client(void *data) {
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
     if (bytes_received == -1) {
-        fprintf(stderr, "error on receive errno: %d", errno);
+        fprintf(stderr, "error on receive info errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
     close(client_socket);
@@ -261,7 +261,7 @@ void *initialise_client(void *data) {
             printf("Got new node! Name:%s:%s:%u\n", new_node.name, new_node.ip_address,
                    new_node.port);
             if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-                fprintf(stderr, "failed to create a socket errno: %d", errno);
+                fprintf(stderr, "failed to create a socket to connect to new nodes errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
             struct sockaddr_in dest;
@@ -269,7 +269,7 @@ void *initialise_client(void *data) {
             dest.sin_port = htons(new_node.port);
             dest.sin_addr.s_addr = inet_addr(new_node.ip_address);
             if (connect(client_socket, (struct sockaddr *) &dest, sizeof(struct sockaddr)) == -1) {
-                fprintf(stderr, "failed to connect to new node errno:%d", errno);
+                fprintf(stderr, "failed to connect to new node errno:%d\n", errno);
                 exit(EXIT_FAILURE);
             }
         }
