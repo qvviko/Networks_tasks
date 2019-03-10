@@ -1,6 +1,6 @@
 #include "node.h"
 
-#define SERVER_PORT     1333 // Port for the server
+#define SERVER_PORT     1337 // Port for the server
 #define SERVER_IP_ADDRESS "192.168.1.52"
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
@@ -118,7 +118,10 @@ void *ping_clients(void *data) {
                         exit(EXIT_FAILURE);
                     }
                 }
-
+                printf("Connected ");
+                printf("Name:%s:%s:%u by %d \n", this_node.peer_list[i].name, this_node.peer_list[i].ip_address,
+                       this_node.peer_list[i].port, connect_fd);
+                fflush(stdout);
                 //Send protocol type
                 bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
                                     (struct sockaddr *) &server_addr,
@@ -154,7 +157,7 @@ void *ping_clients(void *data) {
 void *handle_client(void *data) {
     struct greet_client_data *client_data = (struct greet_client_data *) data;
     socklen_t addr_len;
-    ssize_t received_bytes;
+    ssize_t received_bytes, bytes_sent;
     struct PeerNode new_node;
     struct Protocol p;
 
@@ -169,8 +172,12 @@ void *handle_client(void *data) {
     //Check protocol type, do appropriate things according to it
     if (p.type == PING) {
         p.type = ACK;
-        sendto(client_data->client_socket, (void *) &p, sizeof(p), 0, (struct sockaddr *) &client_data->client_addr,
+        bytes_sent = sendto(client_data->client_socket, (void *) &p, sizeof(p), 0, (struct sockaddr *) &client_data->client_addr,
                sizeof(struct sockaddr));
+        if (bytes_sent == -1){
+            fprintf(stderr, "Error on sending ack errno : %d \n", errno);
+            exit(EXIT_FAILURE);
+        }
         printf("Got pinged, answering\n");
     } else if (p.type == ADD) {
         //Receive data about self from new client
@@ -193,8 +200,12 @@ void *handle_client(void *data) {
             current_connect++;
         }
         //Send known nodes to the new client
-        sendto(client_data->client_socket, this_node.peer_list, sizeof(this_node.peer_list), 0,
+        bytes_sent = sendto(client_data->client_socket, this_node.peer_list, sizeof(this_node.peer_list), 0,
                (struct sockaddr *) &client_data->client_addr, sizeof(struct sockaddr));
+        if (bytes_sent == -1){
+            fprintf(stderr, "Error on sending ack errno : %d \n", errno);
+            exit(EXIT_FAILURE);
+        }
     }
     close(client_data->client_socket);
     return 0;
@@ -258,7 +269,9 @@ void *initialise_client(void *data) {
         fprintf(stderr, "error on receive info errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
+    // Close connection
     close(client_socket);
+    // TODO:Fix this
     for (int j = current_connect; j < CONNECT_N; ++j) {
         Peer new_node = node_list[j];
         if (!member(new_node) && new_node.port != this_node.self.port &&
