@@ -203,7 +203,7 @@ void *initialise_client(void *data) {
     struct sockaddr_in destination_addr = *(struct sockaddr_in *) data;
     int client_socket;
     struct Protocol p;
-
+    struct Peer peer;
     // Create client's socket from which he will connect
     socklen_t addr_len = sizeof(struct sockaddr);
     if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -211,11 +211,15 @@ void *initialise_client(void *data) {
         exit(EXIT_FAILURE);
     }
 
-    // Set up destination address (address of the server)
-    current_connect++;
-    strcpy(this_node.peer_list[current_connect - 1].ip_address, inet_ntoa(destination_addr.sin_addr));
-    this_node.peer_list[current_connect - 1].port = ntohs(destination_addr.sin_port);
-
+    // Don't add if already in list
+    strcpy(peer.ip_address, inet_ntoa(destination_addr.sin_addr));
+    peer.port = ntohs(destination_addr.sin_port);
+    if (!member(peer)) {
+        // Add address to list (address of the server)
+        current_connect++;
+        strcpy(this_node.peer_list[current_connect - 1].ip_address, inet_ntoa(destination_addr.sin_addr));
+        this_node.peer_list[current_connect - 1].port = ntohs(destination_addr.sin_port);
+    }
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
         fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
@@ -294,7 +298,7 @@ int main(void) {
         if (strcmp(buf, "1") == 0) {
             printf("Enter IP:Port of the server\n");
             dest.sin_family = AF_INET;
-            scanf("%s:%hu\n", ip, &port);
+            scanf("%[^:]:%hu", ip, &port);
             dest.sin_port = htons(port);
             dest.sin_addr.s_addr = inet_addr(ip);
             pthread_create(&client, NULL, initialise_client, (void *) &dest);
