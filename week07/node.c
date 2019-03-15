@@ -10,20 +10,20 @@ int peer_cmp(Peer p1, Peer p2) {
         return FALSE;
 }
 
-void add_peer(struct LinkedList *list, struct Peer item) {
+void add_peer(struct LinkedPeerList *list, struct Peer item) {
     if (list->length == 0) {
-        list->self = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
+        list->self = (struct LinkedPeerNode *) malloc(sizeof(struct LinkedPeerNode));
         list->self->value = item;
         list->self->previous = NULL;
         list->self->next = NULL;
     } else {
-        struct LinkedNode *prev = list->self;
-        struct LinkedNode *cur = list->self->next;
+        struct LinkedPeerNode *prev = list->self;
+        struct LinkedPeerNode *cur = list->self->next;
         while (cur != NULL) {
             prev = cur;
             cur = cur->next;
         }
-        prev->next = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
+        prev->next = (struct LinkedPeerNode *) malloc(sizeof(struct LinkedPeerNode));
         prev->next->previous = prev;
         prev->next->next = NULL;
         prev->next->value = item;
@@ -31,13 +31,13 @@ void add_peer(struct LinkedList *list, struct Peer item) {
     list->length++;
 }
 
-int find_peer(struct LinkedList *list, struct Peer item) {
+int find_peer(struct LinkedPeerList *list, struct Peer item) {
     if (list->length == 0)
         return FALSE;
     else if (peer_cmp(item, this_node.self) == TRUE) {
         return FALSE;
     } else {
-        struct LinkedNode *cur = list->self;
+        struct LinkedPeerNode *cur = list->self;
         while (cur != NULL && peer_cmp(item, cur->value) == FALSE) {
             cur = cur->next;
         }
@@ -48,12 +48,12 @@ int find_peer(struct LinkedList *list, struct Peer item) {
     }
 }
 
-void remove_peer(struct LinkedList *list, struct Peer item) {
+void remove_peer(struct LinkedPeerList *list, struct Peer item) {
     if (list->length == 0) {
         return;
     } else {
-        struct LinkedNode *prev = NULL;
-        struct LinkedNode *cur = list->self;
+        struct LinkedPeerNode *prev = NULL;
+        struct LinkedPeerNode *cur = list->self;
         while (cur != NULL && peer_cmp(item, cur->value) == TRUE) {
             prev = cur;
             cur = cur->next;
@@ -74,12 +74,152 @@ void remove_peer(struct LinkedList *list, struct Peer item) {
     list->length--;
 }
 
-void get_peers(struct LinkedList list, struct Peer *items) {
-    struct LinkedNode *cur = list.self;
+void get_peers(struct LinkedPeerList list, struct Peer *items) {
+    struct LinkedPeerNode *cur = list.self;
     for (int i = 0; i < list.length; ++i) {
         items[i] = cur->value;
         cur = cur->next;
     }
+}
+
+int file_cmp(struct PeerFile p1, struct PeerFile p2) {
+    int acc;
+    acc = strcmp(p1.name, p2.name);
+    if (acc == 0)
+        return TRUE;
+    else
+        return FALSE;
+}
+
+void add_file(struct LinkedFileList *list, struct PeerFile file) {
+    if (list->length == 0) {
+        list->self = (struct LinkedFileNode *) malloc(sizeof(struct LinkedFileNode));
+        list->self->value = file;
+        list->self->previous = NULL;
+        list->self->next = NULL;
+    } else {
+        struct LinkedFileNode *prev = list->self;
+        struct LinkedFileNode *cur = list->self->next;
+        while (cur != NULL) {
+            prev = cur;
+            cur = cur->next;
+        }
+        prev->next = (struct LinkedFileNode *) malloc(sizeof(struct LinkedFileNode));
+        prev->next->previous = prev;
+        prev->next->next = NULL;
+        prev->next->value = file;
+    }
+    list->length++;
+}
+
+int find_file(struct LinkedFileList *list, struct PeerFile file) {
+    if (list->length == 0)
+        return FALSE;
+    else {
+        struct LinkedFileNode *cur = list->self;
+        while (cur != NULL && file_cmp(file, cur->value) == FALSE) {
+            cur = cur->next;
+        }
+        if (cur == NULL) {
+            return FALSE;
+        }
+        return TRUE;
+    }
+}
+
+void remove_file(struct LinkedFileList *list, struct PeerFile file) {
+    if (list->length == 0) {
+        return;
+    } else {
+        struct LinkedFileNode *prev = NULL;
+        struct LinkedFileNode *cur = list->self;
+        while (cur != NULL && file_cmp(file, cur->value) == TRUE) {
+            prev = cur;
+            cur = cur->next;
+        }
+        if (cur == NULL)
+            return;
+        else {
+            if (prev == NULL) {
+                list->self = cur->next;
+            } else
+                prev->next = cur->next;
+            if (cur->next != NULL) {
+                cur->next->previous = cur->previous;
+            }
+            free(cur);
+        }
+    }
+    list->length--;
+}
+
+void get_file(struct LinkedFileList list, struct PeerFile *files) {
+    struct LinkedFileNode *cur = list.self;
+    for (int i = 0; i < list.length; ++i) {
+        files[i] = cur->value;
+        cur = cur->next;
+    }
+}
+
+void download_file(struct Peer peer, struct PeerFile file) {
+    printf("Got new file %s \n", file.name);
+    add_file(&this_node.files, file);
+    ssize_t bytes_sent, bytes_received;
+    int client_socket, file_size;
+    struct Protocol p;
+    struct sockaddr_in destination_addr;
+
+    // Create client's socket from which he will connect
+    socklen_t addr_len = sizeof(struct sockaddr);
+    if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+        fprintf(stderr, "failed to create a client socket errno: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    destination_addr.sin_family = AF_INET;
+    destination_addr.sin_addr.s_addr = inet_addr(peer.ip_address);
+    destination_addr.sin_port = htons(peer.port);
+
+    //Connect to the server
+    if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
+        fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    p.type = PROT_GET_FILE;
+    //Send protocol type
+    bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
+                        (struct sockaddr *) &destination_addr,
+                        sizeof(struct sockaddr));
+    if (bytes_sent == -1) {
+        fprintf(stderr, "error on send protocol on load errno: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
+                              (struct sockaddr *) &destination_addr,
+                              &addr_len);
+    if (bytes_received == -1) {
+        fprintf(stderr, "error on receive file size errno: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+    FILE *load_file;
+    load_file = fopen(file.name, "w+");
+    while (file_size > 0) {
+        char buf[20];
+        bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
+                                  (struct sockaddr *) &destination_addr,
+                                  &addr_len);
+        if (bytes_received == -1) {
+            fprintf(stderr, "error on receive word errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+
+        fwrite(buf, sizeof(char), (size_t) bytes_received, load_file);
+        fwrite(" ", sizeof(char), 1, load_file);
+        file_size--;
+    }
+    fclose(load_file);
+    printf("Loaded file %s\n", file.name);
+    close(client_socket);
 }
 
 void connect_to_peer(struct Peer peer) {
@@ -186,6 +326,7 @@ void *ping_clients(void *data) {
     struct Peer *peers = malloc(sizeof(char) * 0);
     struct Protocol p;
     struct Peer peer_buf[PEER_BUF];
+    struct PeerFile file_buf[PEER_BUF];
     ssize_t bytes_received, bytes_sent;
     p.type = PROT_PING;
     int connect_fd, peer_num, peer_sync_num;
@@ -295,6 +436,32 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "error on send ping errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
+
+            int file_sync_num;
+
+            // Get num of files
+            bytes_received = recvfrom(connect_fd, (void *) &file_sync_num, sizeof(file_sync_num), 0,
+                                      (struct sockaddr *) &server_addr,
+                                      &addr_len);
+            if (bytes_received == -1) {
+                fprintf(stderr, "error on receive ping errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+
+            while (file_sync_num > 0) {
+                bytes_received = recvfrom(connect_fd, (void *) &file_buf, sizeof(file_buf), 0,
+                                          (struct sockaddr *) &server_addr,
+                                          &addr_len);
+                if (bytes_received == -1) {
+                    fprintf(stderr, "error on receive ping errno: %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+                for (int j = 0; j < PEER_BUF; ++j) {
+                    if (find_file(&this_node.files, file_buf[i]) == FALSE) {
+                        download_file(peers[i], file_buf[i]);
+                    }
+                }
+            }
             close(connect_fd);
         }
     }
@@ -367,7 +534,7 @@ void *handle_client(void *data) {
         }
 
     } else if (p.type == PROT_SYNC_FILES) {
-        
+
     }
     close(client_data->client_socket);
     return 0;
@@ -438,7 +605,7 @@ int main(void) {
         uint16_t port;
         char buf[2];
         printf("What do you want to do?\n");
-        printf("To connect - 1. (Server works on background)\n");
+        printf("To connect - 1. To add file - 2. (Server works on background)\n");
         read(0, buf, sizeof(buf));
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
@@ -448,6 +615,24 @@ int main(void) {
             dest.sin_port = htons(port);
             dest.sin_addr.s_addr = inet_addr(ip);
             pthread_create(&client, NULL, initialise_client, (void *) &dest);
+        } else if (strcmp(buf, "2") == 0) {
+            char file_buf[26];
+            FILE *file;
+            printf("Enter filename\n");
+            bytes_read = read(0, file_buf, sizeof(file_buf) - 1);
+            file_buf[bytes_read - 1] = '\0';
+            file = fopen(file_buf, "r+");
+            fflush(stdin);
+            if (file == NULL) {
+                printf("No such file exists\n");
+            } else {
+                printf("Added file %s\n", file_buf);
+                struct PeerFile file1;
+                memset(&file1, 0, sizeof(struct PeerFile));
+                strcpy(file1.name, file_buf);
+                fclose(file);
+                add_file(&this_node.files, file1);
+            }
         }
     }
 }
