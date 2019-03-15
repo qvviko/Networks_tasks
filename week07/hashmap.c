@@ -52,7 +52,6 @@ int add_item(struct HashMap *hashmap, void *key, void *value) {
         memcpy(cur_node->key, key, sizeof(hashmap->key_size));
         cur_node->value = malloc(sizeof(hashmap->value_size));
         memcpy(cur_node->value, value, sizeof(hashmap->value_size));
-        printf("%c %d\n", *(char *) cur_node->key, *(int *) cur_node->value);
         cur_node->next = NULL;
         cur_node->previous = node;
         node->next = cur_node;
@@ -90,7 +89,6 @@ void *remove_item(struct HashMap *hashmap, void *key) {
 
 void *find(struct HashMap *hashmap, void *key) {
     struct MapNode *node = hashmap->inner_array[hash_function(hashmap, key)];
-    printf("%c %d\n", *(char *) node->key, *(int *) node->value);
     while (node != NULL && memcmp(node->key, key, hashmap->key_size) != 0) {
         node = node->next;
     }
@@ -104,14 +102,24 @@ void *find(struct HashMap *hashmap, void *key) {
 }
 
 void get_all(struct HashMap *hashMap, void *items) {
-    for (int i = 0; i < hashMap->length; i++) {
-
+    int j = 0;
+    for (int i = 0; i < hashMap->length;) {
+        while (j != hashMap->max_len && hashMap->inner_array[j] == NULL)
+            j++;
+        if (j != hashMap->max_len && hashMap->inner_array[j] != NULL) {
+            struct MapNode *cur = hashMap->inner_array[j];
+            while (cur != NULL) {
+                memcpy(items + hashMap->value_size * i, cur->value, sizeof(hashMap->value_size));
+                i++;
+                cur = cur->next;
+            }
+            j++;
+        }
     }
 }
 
 int main(void) {
     struct HashMap *m = malloc(sizeof(struct HashMap));
-    free(NULL);
     init_map(m, sizeof(char), sizeof(int), 2);
     char *a = malloc(sizeof(char));
     int *b = malloc(sizeof(int));
@@ -127,7 +135,13 @@ int main(void) {
     *a = 'c';
     *b = 7;
     add_item(m, a, b);
+    int *c = malloc(sizeof(int) * m->length);
+    memset(c, 0, sizeof(int) * m->length);
+    get_all(m, c);
 
+    for (int i = 0; i < m->length; ++i) {
+        printf("all %d\n", c[i]);
+    }
     res = find(m, a);
     printf("%d\n", *res);
     free(res);
