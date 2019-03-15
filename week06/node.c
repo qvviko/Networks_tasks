@@ -264,7 +264,6 @@ void *initialise_client(void *data) {
     }
     // Close connection
     close(client_socket);
-    // TODO:Fix this
     for (int j = current_connect; j < CONNECT_N; ++j) {
         Peer new_node = node_list[j];
         if (!member(new_node) && new_node.port != this_node.self.port &&

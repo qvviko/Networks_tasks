@@ -10,18 +10,15 @@ int peer_cmp(Peer p1, Peer p2) {
         return FALSE;
 }
 
-void add_peer(struct LinkedList list, struct Peer item) {
-    if (list.length == 0) {
-        list.self = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
-        list.self->value = item;
-
-        list.self->previous = NULL;
-        list.self->next = NULL;
-        printf("Node Name:%s:%s:%u is being added\n", list.self->value.name,
-               list.self->value.ip_address, list.self->value.port);
+void add_peer(struct LinkedList *list, struct Peer item) {
+    if (list->length == 0) {
+        list->self = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
+        list->self->value = item;
+        list->self->previous = NULL;
+        list->self->next = NULL;
     } else {
-        struct LinkedNode *prev = list.self;
-        struct LinkedNode *cur = list.self->next;
+        struct LinkedNode *prev = list->self;
+        struct LinkedNode *cur = list->self->next;
         while (cur != NULL) {
             prev = cur;
             cur = cur->next;
@@ -31,15 +28,15 @@ void add_peer(struct LinkedList list, struct Peer item) {
         prev->next->next = NULL;
         prev->next->value = item;
     }
-    list.length++;
+    list->length++;
 }
 
-int find_peer(struct LinkedList list, struct Peer item) {
-    if (list.length == 0)
+int find_peer(struct LinkedList *list, struct Peer item) {
+    if (list->length == 0)
         return FALSE;
     else {
         struct LinkedNode *prev = NULL;
-        struct LinkedNode *cur = list.self;
+        struct LinkedNode *cur = list->self;
         while (cur != NULL && peer_cmp(item, cur->value) == TRUE) {
             prev = cur;
             cur = cur->next;
@@ -51,12 +48,12 @@ int find_peer(struct LinkedList list, struct Peer item) {
     }
 }
 
-void remove_peer(struct LinkedList list, struct Peer item) {
-    if (list.length == 0) {
+void remove_peer(struct LinkedList *list, struct Peer item) {
+    if (list->length == 0) {
         return;
     } else {
         struct LinkedNode *prev = NULL;
-        struct LinkedNode *cur = list.self;
+        struct LinkedNode *cur = list->self;
         while (cur != NULL && peer_cmp(item, cur->value) == TRUE) {
             prev = cur;
             cur = cur->next;
@@ -65,7 +62,7 @@ void remove_peer(struct LinkedList list, struct Peer item) {
             return;
         else {
             if (prev == NULL) {
-                list.self = cur->next;
+                list->self = cur->next;
             } else
                 prev->next = cur->next;
             if (cur->next != NULL) {
@@ -74,7 +71,7 @@ void remove_peer(struct LinkedList list, struct Peer item) {
             free(cur);
         }
     }
-    list.length--;
+    list->length--;
 }
 
 void get_peers(struct LinkedList list, struct Peer *items) {
@@ -137,7 +134,6 @@ void *initialise_server(void *data) {
 }
 
 void *ping_clients(void *data) {
-// TODO: FIX THIS
     struct Peer *peers = malloc(sizeof(char) * 0);
     struct Protocol p;
     ssize_t bytes_received, bytes_sent;
@@ -145,7 +141,6 @@ void *ping_clients(void *data) {
     int connect_fd, peer_num;
     struct sockaddr_in server_addr;
     socklen_t addr_len;
-    addr_len = sizeof(server_addr);
 
     while (TRUE) {
         sleep(PING_INTERVAL);
@@ -153,17 +148,15 @@ void *ping_clients(void *data) {
         peer_num = this_node.peers.length;
         peers = (Peer *) realloc(peers, sizeof(Peer) * peer_num);
         get_peers(this_node.peers, peers);
-
         for (int i = 0; i < peer_num; ++i) {
+            addr_len = sizeof(server_addr);
             p.type = PROT_PING;
             if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
                 fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-            printf("about to make addr in ping \n");
-            printf("Node Name:%s:%s:%u is being pinged\n", peers[i].name,
+            printf("pinging :%s:%s:%u \n", peers[i].name,
                    peers[i].ip_address, peers[i].port);
-            fflush(stdout);
             server_addr.sin_family = AF_INET;
             server_addr.sin_port = htons(peers[i].port);
             server_addr.sin_addr.s_addr = inet_addr(peers[i].ip_address);
@@ -173,7 +166,7 @@ void *ping_clients(void *data) {
                     printf("Node Name:%s:%s:%u left\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the hashmap)
-                    remove_peer(this_node.peers, peers[i]);
+                    remove_peer(&this_node.peers, peers[i]);
                     close(connect_fd);
                     continue;
                 } else {
@@ -199,7 +192,7 @@ void *ping_clients(void *data) {
                     printf("Node Name:%s:%s:%u left\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the hashmap)
-                    remove_peer(this_node.peers, peers[i]);
+                    remove_peer(&this_node.peers, peers[i]);
                     close(connect_fd);
                     continue;
                 } else {
@@ -248,21 +241,12 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
 
-        if (find_peer(this_node.peers, new_node)) {
+        if (find_peer(&this_node.peers, new_node) == FALSE) {
             printf("Got new node! Name:%s:%s:%u\n", new_node.name, new_node.ip_address,
                    new_node.port);
             //Add item
-            add_peer(this_node.peers, new_node);
-            printf("Node Name:%s:%s:%u is being added\n", new_node.name, new_node.ip_address, new_node.port);
+            add_peer(&this_node.peers, new_node);
         }
-        //Send known nodes to the new client
-        //TODO: FIX this
-//        bytes_sent = sendto(client_data->client_socket, this_node.peer_list, sizeof(this_node.peer_list), 0,
-//                            (struct sockaddr *) &client_data->client_addr, sizeof(struct sockaddr));
-//        if (bytes_sent == -1) {
-//            fprintf(stderr, "Error on sending ack errno : %d \n", errno);
-//            exit(EXIT_FAILURE);
-//        }
     }
     close(client_data->client_socket);
     return 0;
@@ -285,9 +269,9 @@ void *initialise_client(void *data) {
     // Don't add if already in list
     strcpy(new_peer.ip_address, inet_ntoa(destination_addr.sin_addr));
     new_peer.port = ntohs(destination_addr.sin_port);
-    if (find_peer(this_node.peers, new_peer)) {
+    if (find_peer(&this_node.peers, new_peer) == FALSE) {
         // Add address to list (address of the server)
-        add_peer(this_node.peers, new_peer);
+        add_peer(&this_node.peers, new_peer);
         printf("Got new node! Name:%s:%u\n", new_peer.ip_address,
                new_peer.port);
     }
@@ -315,37 +299,6 @@ void *initialise_client(void *data) {
         fprintf(stderr, "error on send self info errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-    // TODO:Fix this
-//    //Receive data about other nodes
-//    bytes_received = recvfrom(client_socket, (void *) &node_list, sizeof(this_node), 0,
-//                              (struct sockaddr *) &destination_addr,
-//                              &addr_len);
-//    if (bytes_received == -1) {
-//        fprintf(stderr, "error on receive info errno: %d\n", errno);
-//        exit(EXIT_FAILURE);
-//    }
-//    // Close connection
-//    close(client_socket);
-//    for (int j = current_connect; j < CONNECT_N; ++j) {
-//        Peer new_node = node_list[j];
-//        if (!member(new_node) && new_node.port != this_node.self.port &&
-//            strcmp(new_node.ip_address, this_node.self.ip_address) != 0) {
-//            printf("Got new node! Name:%s:%s:%u\n", new_node.name, new_node.ip_address,
-//                   new_node.port);
-//            if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-//                fprintf(stderr, "failed to create a socket to connect to new nodes errno: %d\n", errno);
-//                exit(EXIT_FAILURE);
-//            }
-//            struct sockaddr_in dest;
-//            dest.sin_family = AF_INET;
-//            dest.sin_port = htons(new_node.port);
-//            dest.sin_addr.s_addr = inet_addr(new_node.ip_address);
-//            if (connect(client_socket, (struct sockaddr *) &dest, sizeof(struct sockaddr)) == -1) {
-//                fprintf(stderr, "failed to connect to new node errno:%d\n", errno);
-//                exit(EXIT_FAILURE);
-//            }
-//        }
-//    }
     return 0;
 }
 
