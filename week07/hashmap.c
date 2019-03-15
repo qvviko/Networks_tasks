@@ -1,19 +1,5 @@
 #include "hashmap.h"
 
-struct MapNode {
-    void *key;
-    void *value;
-    struct MapNode *next;
-    struct MapNode *previous;
-};
-struct HashMap {
-    struct MapNode **inner_array;
-    int max_len;
-    int length;
-    size_t key_size;
-    size_t value_size;
-};
-
 int hash_function(struct HashMap *hashmap, void *key) {
     int running_sum = 0, acc = 1;
     for (size_t i = 0; i < hashmap->key_size; i++) {
@@ -117,9 +103,15 @@ void *find(struct HashMap *hashmap, void *key) {
     }
 }
 
+void get_all(struct HashMap *hashMap, void *items) {
+    for (int i = 0; i < hashMap->length; i++) {
+
+    }
+}
 
 int main(void) {
     struct HashMap *m = malloc(sizeof(struct HashMap));
+    free(NULL);
     init_map(m, sizeof(char), sizeof(int), 2);
     char *a = malloc(sizeof(char));
     int *b = malloc(sizeof(int));
@@ -170,6 +162,11 @@ int main(void) {
     res = remove_item(m, a);
     printf("%d\n", *res);
     free(res);
+
+    *a = 'c';
+    *b = 7;
+    add_item(m, a, b);
+
 }
 
 
