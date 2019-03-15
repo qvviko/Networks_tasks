@@ -493,6 +493,62 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
         printf("Got pinged, answering\n");
+
+        received_bytes = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
+                                  (struct sockaddr *) &client_data->client_addr, &addr_len);
+        if (received_bytes == -1) {
+            fprintf(stderr, "Error on recv protocol errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+
+        if (p.type == PROT_SYNC_PEERS) {
+            int peer_size = this_node.peers.length;
+            struct Peer *sync_peers = malloc(peer_size * sizeof(struct Peer));
+            struct Peer peer_buf[PEER_BUF];
+            bytes_sent = sendto(client_data->client_socket, (void *) &peer_size, sizeof(int), 0,
+                                (struct sockaddr *) &client_data->client_addr,
+                                sizeof(struct sockaddr));
+            if (bytes_sent == -1) {
+                fprintf(stderr, "Error on sending proto to sync peers errno : %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+            while (peer_size > 0) {
+                memcpy(peer_buf, sync_peers, sizeof(peer_buf));
+                sync_peers += sizeof(peer_buf);
+                peer_size -= PEER_BUF;
+                bytes_sent = sendto(client_data->client_socket, (void *) &peer_buf, sizeof(peer_buf), 0,
+                                    (struct sockaddr *) &client_data->client_addr,
+                                    sizeof(struct sockaddr));
+                if (bytes_sent == -1) {
+                    fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+        } else if (p.type == PROT_SYNC_FILES) {
+            int file_size = this_node.files.length;
+            struct Peer *sync_files = malloc(file_size * sizeof(struct Peer));
+            struct Peer files_buf[PEER_BUF];
+            bytes_sent = sendto(client_data->client_socket, (void *) &file_size, sizeof(int), 0,
+                                (struct sockaddr *) &client_data->client_addr,
+                                sizeof(struct sockaddr));
+            if (bytes_sent == -1) {
+                fprintf(stderr, "Error on sending proto to sync peers errno : %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+            while (file_size > 0) {
+                memcpy(files_buf, sync_files, sizeof(files_buf));
+                sync_files += sizeof(files_buf);
+                file_size -= PEER_BUF;
+                bytes_sent = sendto(client_data->client_socket, (void *) &files_buf, sizeof(files_buf), 0,
+                                    (struct sockaddr *) &client_data->client_addr,
+                                    sizeof(struct sockaddr));
+                if (bytes_sent == -1) {
+                    fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
     } else if (p.type == PROT_ADD_PEER) {
         //Receive data about self from new client
         received_bytes = recvfrom(client_data->client_socket, (void *) &new_node, sizeof(new_node), 0,
@@ -508,33 +564,9 @@ void *handle_client(void *data) {
                    new_node.port);
             //Add item
             add_peer(&this_node.peers, new_node);
+        } else if (p.type == PROT_GET_FILE) {
+            // #TODO :GET FILE
         }
-    } else if (p.type == PROT_SYNC_PEERS) {
-        int peer_size = this_node.peers.length;
-        struct Peer *sync_peers = malloc(peer_size * sizeof(struct Peer));
-        struct Peer peer_buf[PEER_BUF];
-        bytes_sent = sendto(client_data->client_socket, (void *) &peer_size, sizeof(int), 0,
-                            (struct sockaddr *) &client_data->client_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "Error on sending ack errno : %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-        while (peer_size > 0) {
-            memcpy(peer_buf, sync_peers, sizeof(peer_buf));
-            sync_peers += sizeof(peer_buf);
-            peer_size -= PEER_BUF;
-            bytes_sent = sendto(client_data->client_socket, (void *) &peer_buf, sizeof(peer_buf), 0,
-                                (struct sockaddr *) &client_data->client_addr,
-                                sizeof(struct sockaddr));
-            if (bytes_sent == -1) {
-                fprintf(stderr, "Error on sending ack errno : %d\n", errno);
-                exit(EXIT_FAILURE);
-            }
-        }
-
-    } else if (p.type == PROT_SYNC_FILES) {
-
     }
     close(client_data->client_socket);
     return 0;
