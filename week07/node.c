@@ -75,70 +75,84 @@ void *initialise_server(void *data) {
 
 void *ping_clients(void *data) {
 // TODO: FIX THIS
+    struct Peer *peers;
+    struct Protocol p;
+    ssize_t bytes_received, bytes_sent;
+    p.type = PROT_PING;
+    int connect_fd, peer_num;
+    struct sockaddr_in server_addr;
+    socklen_t addr_len;
+    addr_len = sizeof(server_addr);
+
     Peer null;
     memset(&null, 0, sizeof(null));
     while (TRUE) {
         sleep(PING_INTERVAL);
-        struct Protocol p;
-        ssize_t bytes_received, bytes_sent;
-        p.type = PROT_PING;
-        int connect_fd;
-        struct sockaddr_in server_addr;
-        socklen_t addr_len;
-        addr_len = sizeof(server_addr);
 
-        for (int i = 0; i < CONNECT_N; ++i) {
+        peer_num = this_node.PeerList->length;
+        peers = (Peer *) malloc(sizeof(Peer) * peer_num);
+        get_all(this_node.PeerList, peers);
+
+        for (int i = 0; i < peer_num; ++i) {
             p.type = PROT_PING;
-            if (memcmp(&this_node.peer_list[i], &null, sizeof(this_node.peer_list[i])) != 0) {
-                if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-                    fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
-                    exit(EXIT_FAILURE);
-                }
-                server_addr.sin_family = AF_INET;
-                server_addr.sin_port = htons(this_node.peer_list[i].port);
-                server_addr.sin_addr.s_addr = inet_addr(this_node.peer_list[i].ip_address);
-
-                if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
-                    if (errno == ECONNREFUSED) {
-                        printf("Node Name:%s:%s:%u left\n", this_node.peer_list[i].name,
-                               this_node.peer_list[i].ip_address,
-                               this_node.peer_list[i].port);
-                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
-                        close(connect_fd);
-                        continue;
-                    } else {
-                        fprintf(stderr, "failed to connect to ping errno:%d\n", errno);
-                        exit(EXIT_FAILURE);
-                    }
-                }
-                //Send protocol type
-                bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
-                                    (struct sockaddr *) &server_addr,
-                                    sizeof(struct sockaddr));
-                if (bytes_sent == -1) {
-                    fprintf(stderr, "error on send ping errno: %d\n", errno);
-                    exit(EXIT_FAILURE);
-                }
-
-                //Receive answer
-                bytes_received = recvfrom(connect_fd, (void *) &p, sizeof(p), 0,
-                                          (struct sockaddr *) &server_addr,
-                                          &addr_len);
-                if (bytes_received == -1) {
-                    if (errno == ETIMEDOUT) {
-                        printf("Node Name:%s:%s:%u left\n", this_node.peer_list[i].name,
-                               this_node.peer_list[i].ip_address,
-                               this_node.peer_list[i].port);
-                        memset(&this_node.peer_list[i], 0, sizeof(this_node.peer_list[i]));
-                        close(connect_fd);
-                        continue;
-                    } else {
-                        fprintf(stderr, "error on receive ping errno: %d\n", errno);
-                        exit(EXIT_FAILURE);
-                    }
-                }
-                close(connect_fd);
+            if ((connect_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+                fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
+                exit(EXIT_FAILURE);
             }
+            printf("about to make addr in ping \n");
+            fflush(stdout);
+            server_addr.sin_family = AF_INET;
+            server_addr.sin_port = htons(peers[i].port);
+            server_addr.sin_addr.s_addr = inet_addr(peers[i].ip_address);
+
+            if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
+                if (errno == ECONNREFUSED) {
+                    printf("Node Name:%s:%s:%u left\n", peers[i].name,
+                           peers[i].ip_address, peers[i].port);
+                    //Remove item from the hashmap)
+                    void *key = create_key(peers[i].ip_address, peers[i].port);
+                    void *buf = remove_item(this_node.PeerList, key);
+                    free(key);
+                    free(buf);
+
+                    close(connect_fd);
+                    continue;
+                } else {
+                    fprintf(stderr, "failed to connect to ping errno:%d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            //Send protocol type
+            bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
+                                (struct sockaddr *) &server_addr,
+                                sizeof(struct sockaddr));
+            if (bytes_sent == -1) {
+                fprintf(stderr, "error on send ping errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+
+            //Receive answer
+            bytes_received = recvfrom(connect_fd, (void *) &p, sizeof(p), 0,
+                                      (struct sockaddr *) &server_addr,
+                                      &addr_len);
+            if (bytes_received == -1) {
+                if (errno == ETIMEDOUT) {
+                    printf("Node Name:%s:%s:%u left\n", peers[i].name,
+                           peers[i].ip_address, peers[i].port);
+                    //Remove item from the hashmap)
+                    void *key = create_key(peers[i].ip_address, peers[i].port);
+                    void *buf = remove_item(this_node.PeerList, key);
+                    free(key);
+                    free(buf);
+
+                    close(connect_fd);
+                    continue;
+                } else {
+                    fprintf(stderr, "error on receive ping errno: %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            close(connect_fd);
         }
     }
 }

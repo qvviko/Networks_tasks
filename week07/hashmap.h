@@ -31,4 +31,6 @@ void *remove_item(struct HashMap *hashmap, void *key);
 
 void *find(struct HashMap *hashmap, void *key);
 
+void get_all(struct HashMap *hashMap, void *items);
+
 #endif //NETWORKS_TASKS_HASHMAP_H
