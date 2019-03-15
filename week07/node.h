@@ -13,14 +13,20 @@
 #include "hashmap.h"
 
 #define CONNECT_N       10 //Number of connections at the same time
+#define PROT_OK 100
+#define PROT_NO_200
 #define PROT_PING 55
 #define PROT_ACK 56
 #define PROT_ADD_PEER 50
+#define PROT_SYNC_PEERS 60
+#define PROT_SYNC_FILES 61
 #define SERVER_PORT     1333 // Port for the server
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 3
+#define PEER_BUF 10
+
 
 typedef struct Peer {
     char name[25];
@@ -59,5 +65,7 @@ void *initialise_server(void *);
 void *handle_client(void *);
 
 void *ping_clients(void *);
+
+void connect_to_peer(struct Peer);
 
 struct PeerNode this_node;
