@@ -10,7 +10,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "hashmap.h"
 
 #define CONNECT_N       10 //Number of connections at the same time
 #define PROT_OK 100
@@ -48,6 +47,10 @@ struct PeerNode {
     struct LinkedList peers;
 };
 
+struct PeerFile {
+    char name[25];
+    int words_count;
+};
 struct Protocol {
     short type;
 };

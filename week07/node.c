@@ -287,14 +287,14 @@ void *ping_clients(void *data) {
 
 
             //SYNC FILES
-//            p.type = PROT_SYNC_FILES;
-//            bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
-//                                (struct sockaddr *) &server_addr,
-//                                sizeof(struct sockaddr));
-//            if (bytes_sent == -1) {
-//                fprintf(stderr, "error on send ping errno: %d\n", errno);
-//                exit(EXIT_FAILURE);
-//            }
+            p.type = PROT_SYNC_FILES;
+            bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
+                                (struct sockaddr *) &server_addr,
+                                sizeof(struct sockaddr));
+            if (bytes_sent == -1) {
+                fprintf(stderr, "error on send ping errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
             close(connect_fd);
         }
     }
@@ -367,7 +367,7 @@ void *handle_client(void *data) {
         }
 
     } else if (p.type == PROT_SYNC_FILES) {
-
+        
     }
     close(client_data->client_socket);
     return 0;
@@ -449,6 +449,5 @@ int main(void) {
             dest.sin_addr.s_addr = inet_addr(ip);
             pthread_create(&client, NULL, initialise_client, (void *) &dest);
         }
-        sleep(1);
     }
 }
