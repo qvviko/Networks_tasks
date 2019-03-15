@@ -20,7 +20,6 @@
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
-#define KEY_SIZE 30
 #define PING_INTERVAL 3
 
 typedef struct Peer {
@@ -29,20 +28,29 @@ typedef struct Peer {
     uint16_t port;
 } Peer;
 
-struct greet_client_data {
-    int client_socket, number;
-    struct sockaddr_in client_addr;
+struct LinkedNode {
+    struct LinkedNode *next, *previous;
+    struct Peer value;
+};
+struct LinkedList {
+    int length;
+    struct LinkedNode *self;
 };
 
 struct PeerNode {
     Peer self;
-    struct HashMap *PeerList;
-    struct HashMap *FileList;
+    struct LinkedList peers;
 };
 
 struct Protocol {
     short type;
 };
+
+struct greet_client_data {
+    int client_socket;
+    struct sockaddr_in client_addr;
+};
+
 
 void *initialise_client(void *);
 

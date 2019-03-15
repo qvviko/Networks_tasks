@@ -1,14 +1,88 @@
 #include "node.h"
 
-char *create_key(char ip[20], uint16_t port) {
-    char *to_return = (char *) malloc(sizeof(char) * KEY_SIZE);
-    char small_buf[16];
-    memset(small_buf, 0, sizeof(small_buf));
-    memset(to_return, 0, sizeof(char) * KEY_SIZE);
-    strcpy(to_return, ip);
-    sprintf(small_buf, "%hu", port);
-    strcpy(to_return + strlen(to_return), small_buf);
-    return to_return;
+
+int peer_cmp(Peer p1, Peer p2) {
+    int acc;
+    acc = strcmp(p1.ip_address, p2.ip_address);
+    if (acc == 0 && p1.port == p2.port)
+        return TRUE;
+    else
+        return FALSE;
+}
+
+void add_peer(struct LinkedList list, struct Peer item) {
+    if (list.length == 0) {
+        list.self = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
+        list.self->value = item;
+
+        list.self->previous = NULL;
+        list.self->next = NULL;
+        printf("Node Name:%s:%s:%u is being added\n", list.self->value.name,
+               list.self->value.ip_address, list.self->value.port);
+    } else {
+        struct LinkedNode *prev = list.self;
+        struct LinkedNode *cur = list.self->next;
+        while (cur != NULL) {
+            prev = cur;
+            cur = cur->next;
+        }
+        prev->next = (struct LinkedNode *) malloc(sizeof(struct LinkedNode));
+        prev->next->previous = prev;
+        prev->next->next = NULL;
+        prev->next->value = item;
+    }
+    list.length++;
+}
+
+int find_peer(struct LinkedList list, struct Peer item) {
+    if (list.length == 0)
+        return FALSE;
+    else {
+        struct LinkedNode *prev = NULL;
+        struct LinkedNode *cur = list.self;
+        while (cur != NULL && peer_cmp(item, cur->value) == TRUE) {
+            prev = cur;
+            cur = cur->next;
+        }
+        if (cur == NULL) {
+            return FALSE;
+        }
+        return TRUE;
+    }
+}
+
+void remove_peer(struct LinkedList list, struct Peer item) {
+    if (list.length == 0) {
+        return;
+    } else {
+        struct LinkedNode *prev = NULL;
+        struct LinkedNode *cur = list.self;
+        while (cur != NULL && peer_cmp(item, cur->value) == TRUE) {
+            prev = cur;
+            cur = cur->next;
+        }
+        if (cur == NULL)
+            return;
+        else {
+            if (prev == NULL) {
+                list.self = cur->next;
+            } else
+                prev->next = cur->next;
+            if (cur->next != NULL) {
+                cur->next->previous = cur->previous;
+            }
+            free(cur);
+        }
+    }
+    list.length--;
+}
+
+void get_peers(struct LinkedList list, struct Peer *items) {
+    struct LinkedNode *cur = list.self;
+    for (int i = 0; i < list.length; ++i) {
+        items[i] = cur->value;
+        cur = cur->next;
+    }
 }
 
 void *initialise_server(void *data) {
@@ -57,7 +131,6 @@ void *initialise_server(void *data) {
                             &addrlen);
         c_data.client_socket = clients_fd;
         c_data.client_addr = client_addr;
-        c_data.number = current_connect;
         pthread_create(&clients[current_connect], NULL, handle_client, (void *) &c_data);
         current_connect = (current_connect + 1) % CONNECT_N;
     }
@@ -77,9 +150,9 @@ void *ping_clients(void *data) {
     while (TRUE) {
         sleep(PING_INTERVAL);
 
-        peer_num = this_node.PeerList->length;
+        peer_num = this_node.peers.length;
         peers = (Peer *) realloc(peers, sizeof(Peer) * peer_num);
-        get_all(this_node.PeerList, peers);
+        get_peers(this_node.peers, peers);
 
         for (int i = 0; i < peer_num; ++i) {
             p.type = PROT_PING;
@@ -100,11 +173,7 @@ void *ping_clients(void *data) {
                     printf("Node Name:%s:%s:%u left\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the hashmap)
-                    void *key = create_key(peers[i].ip_address, peers[i].port);
-                    void *buf = remove_item(this_node.PeerList, key);
-                    free(key);
-                    free(buf);
-
+                    remove_peer(this_node.peers, peers[i]);
                     close(connect_fd);
                     continue;
                 } else {
@@ -130,11 +199,7 @@ void *ping_clients(void *data) {
                     printf("Node Name:%s:%s:%u left\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the hashmap)
-                    void *key = create_key(peers[i].ip_address, peers[i].port);
-                    void *buf = remove_item(this_node.PeerList, key);
-                    free(key);
-                    free(buf);
-
+                    remove_peer(this_node.peers, peers[i]);
                     close(connect_fd);
                     continue;
                 } else {
@@ -153,8 +218,6 @@ void *handle_client(void *data) {
     ssize_t received_bytes, bytes_sent;
     struct Peer new_node;
     struct Protocol p;
-    char *key;
-    void *member;
 
     //Receive protocol data from client
     received_bytes = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
@@ -185,18 +248,13 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
 
-        key = create_key(new_node.ip_address, new_node.port);
-        member = find(this_node.PeerList, key);
-        if (member == NULL) {
+        if (find_peer(this_node.peers, new_node)) {
             printf("Got new node! Name:%s:%s:%u\n", new_node.name, new_node.ip_address,
                    new_node.port);
             //Add item
-            add_item(this_node.PeerList, key, (void *) &new_node);
-            Peer *h = find(this_node.PeerList, key);
-            printf("Node Name:%s:%s:%u is being added\n", h->name, h->ip_address, h->port);
+            add_peer(this_node.peers, new_node);
+            printf("Node Name:%s:%s:%u is being added\n", new_node.name, new_node.ip_address, new_node.port);
         }
-        free(member);
-        free(key);
         //Send known nodes to the new client
         //TODO: FIX this
 //        bytes_sent = sendto(client_data->client_socket, this_node.peer_list, sizeof(this_node.peer_list), 0,
@@ -212,7 +270,6 @@ void *handle_client(void *data) {
 
 void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
-    char *key;
     Peer new_peer;
     ssize_t bytes_received, bytes_sent;
     struct sockaddr_in destination_addr = *(struct sockaddr_in *) data;
@@ -226,18 +283,14 @@ void *initialise_client(void *data) {
     }
 
     // Don't add if already in list
-    key = create_key(inet_ntoa(destination_addr.sin_addr), ntohs(destination_addr.sin_port));
-    void *member = find(this_node.PeerList, key);
-    if (member == NULL) {
+    strcpy(new_peer.ip_address, inet_ntoa(destination_addr.sin_addr));
+    new_peer.port = ntohs(destination_addr.sin_port);
+    if (find_peer(this_node.peers, new_peer)) {
         // Add address to list (address of the server)
-        strcpy(new_peer.ip_address, inet_ntoa(destination_addr.sin_addr));
-        new_peer.port = ntohs(destination_addr.sin_port);
-        add_item(this_node.PeerList, key, (void *) &new_peer);
+        add_peer(this_node.peers, new_peer);
         printf("Got new node! Name:%s:%u\n", new_peer.ip_address,
                new_peer.port);
     }
-    free(member);
-    free(key);
 
     //Connect to the server
     if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
@@ -300,13 +353,6 @@ int main(void) {
     pthread_t client, server;
     ssize_t bytes_read;
     memset(&this_node, 0, sizeof(this_node));
-    // Init current node
-    this_node.PeerList = (struct HashMap *) malloc(sizeof(struct HashMap));
-    this_node.FileList = (struct HashMap *) malloc(sizeof(struct HashMap));
-
-    //Init hash map
-    init_map(this_node.PeerList, sizeof(char) * KEY_SIZE, sizeof(struct Peer), 5);
-    //TODO: ADD init hashmap for files
     printf("How should i call you?\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
     this_node.self.name[bytes_read - 1] = '\0';
