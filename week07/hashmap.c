@@ -118,70 +118,76 @@ void get_all(struct HashMap *hashMap, void *items) {
     }
 }
 
-int main(void) {
-    struct HashMap *m = malloc(sizeof(struct HashMap));
-    init_map(m, sizeof(char), sizeof(int), 2);
-    char *a = malloc(sizeof(char));
-    int *b = malloc(sizeof(int));
-    int *res;
-    *a = 'a';
-    *b = 5;
-    add_item(m, a, b);
-    add_item(m, a, b);
-    add_item(m, a, b);
-    *a = 'b';
-    *b = 6;
-    add_item(m, a, b);
-    *a = 'c';
-    *b = 7;
-    add_item(m, a, b);
-    int *c = malloc(sizeof(int) * m->length);
-    memset(c, 0, sizeof(int) * m->length);
-    get_all(m, c);
-
-    for (int i = 0; i < m->length; ++i) {
-        printf("all %d\n", c[i]);
-    }
-    res = find(m, a);
-    printf("%d\n", *res);
-    free(res);
-    res = remove_item(m, a);
-    printf("%d\n", *res);
-    free(res);
-
-    *a = 'c';
-    *b = 7;
-    add_item(m, a, b);
-
-    *a = 'a';
-    res = find(m, a);
-    printf("%d\n", *res);
-    free(res);
-    res = remove_item(m, a);
-    printf("%d\n", *res);
-    free(res);
-
-    *a = 'b';
-    res = find(m, a);
-    printf("%d\n", *res);
-    free(res);
-    res = remove_item(m, a);
-    printf("%d\n", *res);
-    free(res);
-
-    *a = 'c';
-    res = find(m, a);
-    printf("%d\n", *res);
-    free(res);
-    res = remove_item(m, a);
-    printf("%d\n", *res);
-    free(res);
-
-    *a = 'c';
-    *b = 7;
-    add_item(m, a, b);
-
-}
-
-
-
+typedef struct h {
+    int a, b;
+} hm;
+//
+//int main(void) {
+//    struct HashMap *m = malloc(sizeof(struct HashMap));
+//    init_map(m, sizeof(char), sizeof(int), 2);
+//    char *a = malloc(sizeof(char));
+//    hm b;
+//    b.a = 1;
+//    b.b = 2;
+//    int *res;
+//    *a = 'a';
+//    b.b = 5;
+//    add_item(m, a, &b);
+//    add_item(m, a, &b);
+//    add_item(m, a, &b);
+//    *a = 'b';
+//    b.b = 6;
+//    add_item(m, a, &b);
+//    *a = 'c';
+//    b.b = 7;
+//    add_item(m, a, &b);
+//    int *c = malloc(sizeof(int) * m->length);
+//    memset(c, 0, sizeof(int) * m->length);
+//    get_all(m, c);
+//
+//    for (int i = 0; i < m->length; ++i) {
+//        printf("all %d\n", c[i]);
+//    }
+//    res = find(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//    res = remove_item(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//
+//    *a = 'c';
+//    *b = 7;
+//    add_item(m, a, b);
+//
+//    *a = 'a';
+//    res = find(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//    res = remove_item(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//
+//    *a = 'b';
+//    res = find(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//    res = remove_item(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//
+//    *a = 'c';
+//    res = find(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//    res = remove_item(m, a);
+//    printf("%d\n", *res);
+//    free(res);
+//
+//    *a = 'c';
+//    *b = 7;
+//    add_item(m, a, b);
+//
+//}
+//
+//
+//

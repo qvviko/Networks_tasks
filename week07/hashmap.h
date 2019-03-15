@@ -6,6 +6,7 @@
 #include <memory.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdint.h>
 
 struct MapNode {
     void *key;

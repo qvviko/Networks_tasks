@@ -1,15 +1,5 @@
 #include "node.h"
 
-//int member(Peer element) {
-//    for (int i = 0; i < CONNECT_N; i++) {
-//        if ((strcmp(this_node.peer_list[i].ip_address, element.ip_address) == 0) &&
-//            element.port == this_node.peer_list[i].port) {
-//            return TRUE;
-//        }
-//    }
-//    return FALSE;
-//}
-
 char *create_key(char ip[20], uint16_t port) {
     char *to_return = (char *) malloc(sizeof(char) * KEY_SIZE);
     char small_buf[16];
@@ -75,7 +65,7 @@ void *initialise_server(void *data) {
 
 void *ping_clients(void *data) {
 // TODO: FIX THIS
-    struct Peer *peers;
+    struct Peer *peers = malloc(sizeof(char) * 0);
     struct Protocol p;
     ssize_t bytes_received, bytes_sent;
     p.type = PROT_PING;
@@ -84,13 +74,11 @@ void *ping_clients(void *data) {
     socklen_t addr_len;
     addr_len = sizeof(server_addr);
 
-    Peer null;
-    memset(&null, 0, sizeof(null));
     while (TRUE) {
         sleep(PING_INTERVAL);
 
         peer_num = this_node.PeerList->length;
-        peers = (Peer *) malloc(sizeof(Peer) * peer_num);
+        peers = (Peer *) realloc(peers, sizeof(Peer) * peer_num);
         get_all(this_node.PeerList, peers);
 
         for (int i = 0; i < peer_num; ++i) {
@@ -100,6 +88,8 @@ void *ping_clients(void *data) {
                 exit(EXIT_FAILURE);
             }
             printf("about to make addr in ping \n");
+            printf("Node Name:%s:%s:%u is being pinged\n", peers[i].name,
+                   peers[i].ip_address, peers[i].port);
             fflush(stdout);
             server_addr.sin_family = AF_INET;
             server_addr.sin_port = htons(peers[i].port);
@@ -202,6 +192,8 @@ void *handle_client(void *data) {
                    new_node.port);
             //Add item
             add_item(this_node.PeerList, key, (void *) &new_node);
+            Peer *h = find(this_node.PeerList, key);
+            printf("Node Name:%s:%s:%u is being added\n", h->name, h->ip_address, h->port);
         }
         free(member);
         free(key);
@@ -304,7 +296,6 @@ void *initialise_client(void *data) {
     return 0;
 }
 
-
 int main(void) {
     pthread_t client, server;
     ssize_t bytes_read;
@@ -314,7 +305,7 @@ int main(void) {
     this_node.FileList = (struct HashMap *) malloc(sizeof(struct HashMap));
 
     //Init hash map
-    init_map(this_node.PeerList, sizeof(char) * KEY_SIZE, sizeof(Peer), 5);
+    init_map(this_node.PeerList, sizeof(char) * KEY_SIZE, sizeof(struct Peer), 5);
     //TODO: ADD init hashmap for files
     printf("How should i call you?\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
