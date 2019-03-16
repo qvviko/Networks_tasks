@@ -267,11 +267,11 @@ int words_count(FILE *file) {
 }
 
 void connect_to_peer(struct Peer peer) {
-    ssize_t bytes_sent;
+    ssize_t bytes_sent, bytes_received;
     int client_socket;
     struct Protocol p;
     struct sockaddr_in destination_addr;
-    if (peer_cmp(peer, this_node.self) == TRUE) {
+    if (peer_cmp(peer, this_node.self) == FALSE && find_peer(&this_node.peers, peer) == FALSE) {
         // Create client's socket from which he will connect
         socklen_t addr_len = sizeof(struct sockaddr);
         if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -280,12 +280,6 @@ void connect_to_peer(struct Peer peer) {
         }
 
         // Add address to list (address of the server)
-        if (find_peer(&this_node.peers, peer) == FALSE) {
-            // Add address to list (address of the server)
-            add_peer(&this_node.peers, peer);
-            printf("Got new node! Name:%s:%u\n", peer.ip_address,
-                   peer.port);
-        }
         destination_addr.sin_family = AF_INET;
         destination_addr.sin_addr.s_addr = inet_addr(peer.ip_address);
         destination_addr.sin_port = htons(peer.port);
@@ -304,7 +298,19 @@ void connect_to_peer(struct Peer peer) {
             fprintf(stderr, "error on send protocol on client to connect a peer errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        addr_len = sizeof(struct sockaddr_in);
+        //Get name of the peer
+        bytes_received = recvfrom(client_socket, (void *) &peer.name, sizeof(peer.name), 0,
+                                  (struct sockaddr *) &destination_addr,
+                                  &addr_len);
+        if (bytes_received == -1) {
+            fprintf(stderr, "Error on recv name of the node errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
 
+        add_peer(&this_node.peers, peer);
+        printf("Got new node! Name: %s:%s:%u\n", peer.name, peer.ip_address,
+               peer.port);
         //Send data about self
         bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
                             (struct sockaddr *) &destination_addr,
@@ -631,7 +637,7 @@ void *handle_client(void *data) {
         }
 
         if (find_peer(&this_node.peers, new_node) == FALSE) {
-            printf("Got new node! Name:%s:%s:%u\n", new_node.name, new_node.ip_address,
+            printf("Got new node! Name: %s:%s:%u\n", new_node.name, new_node.ip_address,
                    new_node.port);
             //Add item
             add_peer(&this_node.peers, new_node);
@@ -694,53 +700,10 @@ void *handle_client(void *data) {
 }
 
 void *initialise_client(void *data) {
-    //Set up variables for client socket its address and destination address
-    Peer new_peer;
-    ssize_t bytes_sent;
-    struct sockaddr_in destination_addr = *(struct sockaddr_in *) data;
-    int client_socket;
-    struct Protocol p;
-    // Create client's socket from which he will connect
-    socklen_t addr_len = sizeof(struct sockaddr);
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        fprintf(stderr, "failed to create a client socket errno: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
-
-    // Don't add if already in list
-    strcpy(new_peer.ip_address, inet_ntoa(destination_addr.sin_addr));
-    new_peer.port = ntohs(destination_addr.sin_port);
-    if (find_peer(&this_node.peers, new_peer) == FALSE) {
-        // Add address to list (address of the server)
-        add_peer(&this_node.peers, new_peer);
-        printf("Got new node! Name:%s:%u\n", new_peer.ip_address,
-               new_peer.port);
-
-        //Connect to the server
-        if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-            fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-        p.type = PROT_ADD_PEER;
-
-        //Send protocol type
-        bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
-                            (struct sockaddr *) &destination_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "error on send protocol on client errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
-        //Send data about self
-        bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
-                            (struct sockaddr *) &destination_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "error on send self info errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-    }
+    struct Peer new_peer;
+    new_peer = *((struct Peer *) data);
+    printf("%s %s %hu", new_peer.ip_address, new_peer.name, new_peer.port);
+    connect_to_peer(new_peer);
     return 0;
 }
 
@@ -754,7 +717,7 @@ int main(void) {
     printf("Ok! Your name is: %s\n", this_node.self.name);
     pthread_create(&server, NULL, initialise_server, NULL);
     while (TRUE) {
-        struct sockaddr_in dest;
+        struct Peer new_peer;
         char ip[20];
         uint16_t port;
         char buf[2];
@@ -764,11 +727,11 @@ int main(void) {
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
             printf("Enter IP:Port of the server\n");
-            dest.sin_family = AF_INET;
             scanf("%[^:]:%hu", ip, &port);
-            dest.sin_port = htons(port);
-            dest.sin_addr.s_addr = inet_addr(ip);
-            pthread_create(&client, NULL, initialise_client, (void *) &dest);
+            strcpy(new_peer.ip_address, ip);
+            new_peer.port = port;
+            printf("%s %s %hu", new_peer.ip_address, new_peer.name, new_peer.port);
+            pthread_create(&client, NULL, initialise_client, (void *) &new_peer);
         } else if (strcmp(buf, "2") == 0) {
             char file_buf[26];
             FILE *file;

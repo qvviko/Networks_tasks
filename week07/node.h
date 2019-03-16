@@ -12,7 +12,7 @@
 #include <pthread.h>
 #include <ctype.h>
 
-#define CONNECT_N       10 //Number of connections at the same time
+#define CONNECT_N       10
 #define PROT_PING 55
 #define PROT_ACK 56
 #define PROT_ADD_PEER 50
@@ -21,7 +21,7 @@
 #define PROT_GET_FILE 70
 #define PROT_OK 100
 #define PROT_NO 200
-#define SERVER_PORT     1337 // Port for the server
+#define SERVER_PORT     1337
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
