@@ -209,10 +209,12 @@ void download_file(struct Peer peer, struct PeerFile file) {
         fprintf(stderr, "error on receive protocol answer to download a file: %d\n", errno);
         exit(EXIT_FAILURE);
     }
+
     if (p.type == PROT_NO) {
         close(client_socket);
         return;
-    } else {
+    } else if (p.type == PROT_OK) {
+        printf("Beginning the download of %s\n", file.name);
 
         bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                                   (struct sockaddr *) &destination_addr,
@@ -225,6 +227,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
         load_file = fopen(file.name, "w+");
         while (file_size > 0) {
             char buf[20];
+            memset(buf, 0, sizeof(buf));
             bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
                                       (struct sockaddr *) &destination_addr,
                                       &addr_len);
@@ -233,8 +236,11 @@ void download_file(struct Peer peer, struct PeerFile file) {
                 exit(EXIT_FAILURE);
             }
 
-            fwrite(buf, sizeof(char), (size_t) bytes_received, load_file);
+            fwrite(buf, sizeof(char), strlen(buf), load_file);
             file_size--;
+            if (file_size != 0) {
+                fwrite(" ", sizeof(char), strlen(" "), load_file);
+            }
         }
         fclose(load_file);
         printf("Loaded file %s\n", file.name);
@@ -265,48 +271,50 @@ void connect_to_peer(struct Peer peer) {
     int client_socket;
     struct Protocol p;
     struct sockaddr_in destination_addr;
-    // Create client's socket from which he will connect
-    socklen_t addr_len = sizeof(struct sockaddr);
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-        fprintf(stderr, "failed to create a client socket to add a peer errno: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
+    if (peer_cmp(peer, this_node.self) == TRUE) {
+        // Create client's socket from which he will connect
+        socklen_t addr_len = sizeof(struct sockaddr);
+        if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+            fprintf(stderr, "failed to create a client socket to add a peer errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
 
-    // Add address to list (address of the server)
-    if (find_peer(&this_node.peers, peer) == FALSE) {
         // Add address to list (address of the server)
-        add_peer(&this_node.peers, peer);
-        printf("Got new node! Name:%s:%u\n", peer.ip_address,
-               peer.port);
-    }
-    destination_addr.sin_family = AF_INET;
-    destination_addr.sin_addr.s_addr = inet_addr(peer.ip_address);
-    destination_addr.sin_port = htons(peer.port);
+        if (find_peer(&this_node.peers, peer) == FALSE) {
+            // Add address to list (address of the server)
+            add_peer(&this_node.peers, peer);
+            printf("Got new node! Name:%s:%u\n", peer.ip_address,
+                   peer.port);
+        }
+        destination_addr.sin_family = AF_INET;
+        destination_addr.sin_addr.s_addr = inet_addr(peer.ip_address);
+        destination_addr.sin_port = htons(peer.port);
 
-    //Connect to the server
-    if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-        fprintf(stderr, "failed to connect to server by client to connect a peer errno:%d\n", errno);
-        exit(EXIT_FAILURE);
-    }
-    p.type = PROT_ADD_PEER;
-    //Send protocol type
-    bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
-                        (struct sockaddr *) &destination_addr,
-                        sizeof(struct sockaddr));
-    if (bytes_sent == -1) {
-        fprintf(stderr, "error on send protocol on client to connect a peer errno: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
+        //Connect to the server
+        if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
+            fprintf(stderr, "failed to connect to server by client to connect a peer errno:%d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        p.type = PROT_ADD_PEER;
+        //Send protocol type
+        bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
+                            (struct sockaddr *) &destination_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "error on send protocol on client to connect a peer errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
 
-    //Send data about self
-    bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
-                        (struct sockaddr *) &destination_addr,
-                        sizeof(struct sockaddr));
-    if (bytes_sent == -1) {
-        fprintf(stderr, "error on send self info in connect to a peer errno: %d\n", errno);
-        exit(EXIT_FAILURE);
+        //Send data about self
+        bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
+                            (struct sockaddr *) &destination_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "error on send self info in connect to a peer errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        close(client_socket);
     }
-    close(client_socket);
 }
 
 void *initialise_server(void *data) {
@@ -384,8 +392,6 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "failed to create a socket to ping clients errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-            printf("pinging :%s:%s:%u \n", peers[i].name,
-                   peers[i].ip_address, peers[i].port);
             server_addr.sin_family = AF_INET;
             server_addr.sin_port = htons(peers[i].port);
             server_addr.sin_addr.s_addr = inet_addr(peers[i].ip_address);
@@ -429,8 +435,6 @@ void *ping_clients(void *data) {
                     exit(EXIT_FAILURE);
                 }
             }
-            printf("pinging :%s:%s:%u has ended\n", peers[i].name,
-                   peers[i].ip_address, peers[i].port);
             //Begin SYNC
 
             //SYNC PEERS
@@ -609,6 +613,14 @@ void *handle_client(void *data) {
             }
         }
     } else if (p.type == PROT_ADD_PEER) {
+        bytes_sent = sendto(client_data->client_socket, (void *) &this_node.self.name, sizeof(this_node.self.name), 0,
+                            (struct sockaddr *) &client_data->client_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+
         //Receive data about self from new client
         received_bytes = recvfrom(client_data->client_socket, (void *) &new_node, sizeof(new_node), 0,
                                   (struct sockaddr *) &client_data->client_addr, &addr_len);
@@ -635,6 +647,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        printf("Beginning to send file %s \n", file.name);
         send_file = fopen(file.name, "r+");
         if (send_file == NULL)
             p.type = PROT_NO;
@@ -648,11 +661,22 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on sending ack errno : %d\n", errno);
             exit(EXIT_FAILURE);
         }
-
+        if (p.type == PROT_NO) {
+            close(client_data->client_socket);
+            return NULL;
+        }
         num_words = words_count(send_file);
+        bytes_sent = sendto(client_data->client_socket, (void *) &num_words, sizeof(num_words), 0,
+                            (struct sockaddr *) &client_data->client_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "Error on sending num words errno : %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
         while (num_words > 0) {
             //Send words by one words at the time
-            fscanf(send_file, "%[^ ]", words_buf);
+            memset(words_buf, 0, sizeof(words_buf));
+            fscanf(send_file, "%[^ ] ", words_buf);
             bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, sizeof(words_buf), 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
@@ -662,12 +686,13 @@ void *handle_client(void *data) {
             }
             num_words--;
         }
+        printf("Ended transmitting\n");
+
     }
     close(client_data->client_socket);
     return 0;
 }
 
-//TODO: check self add
 void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
     Peer new_peer;
@@ -690,30 +715,31 @@ void *initialise_client(void *data) {
         add_peer(&this_node.peers, new_peer);
         printf("Got new node! Name:%s:%u\n", new_peer.ip_address,
                new_peer.port);
-    }
 
-    //Connect to the server
-    if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-        fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
-        exit(EXIT_FAILURE);
-    }
-    p.type = PROT_ADD_PEER;
-    //Send protocol type
-    bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
-                        (struct sockaddr *) &destination_addr,
-                        sizeof(struct sockaddr));
-    if (bytes_sent == -1) {
-        fprintf(stderr, "error on send protocol on client errno: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
+        //Connect to the server
+        if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
+            fprintf(stderr, "failed to connect to server by client errno:%d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        p.type = PROT_ADD_PEER;
 
-    //Send data about self
-    bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
-                        (struct sockaddr *) &destination_addr,
-                        sizeof(struct sockaddr));
-    if (bytes_sent == -1) {
-        fprintf(stderr, "error on send self info errno: %d\n", errno);
-        exit(EXIT_FAILURE);
+        //Send protocol type
+        bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
+                            (struct sockaddr *) &destination_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "error on send protocol on client errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+
+        //Send data about self
+        bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
+                            (struct sockaddr *) &destination_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "error on send self info errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
     }
     return 0;
 }
