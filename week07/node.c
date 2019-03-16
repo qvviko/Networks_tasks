@@ -194,32 +194,70 @@ void download_file(struct Peer peer, struct PeerFile file) {
         exit(EXIT_FAILURE);
     }
 
-    bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
+    bytes_sent = sendto(client_socket, (void *) &file, sizeof(struct PeerFile), 0,
+                        (struct sockaddr *) &destination_addr,
+                        sizeof(struct sockaddr));
+    if (bytes_sent == -1) {
+        fprintf(stderr, "error on send protocol on load errno: %d\n", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    bytes_received = recvfrom(client_socket, (void *) &p, sizeof(p), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
     if (bytes_received == -1) {
         fprintf(stderr, "error on receive file size errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-    FILE *load_file;
-    load_file = fopen(file.name, "w+");
-    while (file_size > 0) {
-        char buf[20];
-        bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
+    if (p.type == PROT_NO) {
+        close(client_socket);
+        return;
+    } else {
+
+        bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                                   (struct sockaddr *) &destination_addr,
                                   &addr_len);
         if (bytes_received == -1) {
-            fprintf(stderr, "error on receive word errno: %d\n", errno);
+            fprintf(stderr, "error on receive file size errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        FILE *load_file;
+        load_file = fopen(file.name, "w+");
+        while (file_size > 0) {
+            char buf[20];
+            bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
+                                      (struct sockaddr *) &destination_addr,
+                                      &addr_len);
+            if (bytes_received == -1) {
+                fprintf(stderr, "error on receive word errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
 
-        fwrite(buf, sizeof(char), (size_t) bytes_received, load_file);
-        fwrite(" ", sizeof(char), 1, load_file);
-        file_size--;
+            fwrite(buf, sizeof(char), (size_t) bytes_received, load_file);
+            file_size--;
+        }
+        fclose(load_file);
+        printf("Loaded file %s\n", file.name);
+        close(client_socket);
     }
-    fclose(load_file);
-    printf("Loaded file %s\n", file.name);
-    close(client_socket);
+}
+
+int words_count(FILE *file) {
+    int num_words = 0;
+    int c;
+    rewind(file);
+    if (feof(file))
+        return 0;
+
+    while ((c = getc(file)) != EOF) {
+        if (isalpha(c)) {
+            continue;
+        } else if (c == ' ') {
+            num_words++;
+        }
+    }
+    rewind(file);
+    return num_words + 1;
 }
 
 void connect_to_peer(struct Peer peer) {
@@ -565,12 +603,49 @@ void *handle_client(void *data) {
             //Add item
             add_peer(&this_node.peers, new_node);
         } else if (p.type == PROT_GET_FILE) {
-            // #TODO :GET FILE
+            int num_words;
+            char words_buf[20];
+            struct PeerFile file;
+            FILE *send_file;
+            received_bytes = recvfrom(client_data->client_socket, (void *) &file, sizeof(file), 0,
+                                      (struct sockaddr *) &client_data->client_addr, &addr_len);
+            if (received_bytes == -1) {
+                fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+            send_file = fopen(file.name, "r+");
+            if (send_file == NULL)
+                p.type = PROT_NO;
+            else
+                p.type = PROT_OK;
+
+            bytes_sent = sendto(client_data->client_socket, (void *) &p, sizeof(p), 0,
+                                (struct sockaddr *) &client_data->client_addr,
+                                sizeof(struct sockaddr));
+            if (bytes_sent == -1) {
+                fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
+
+            num_words = words_count(send_file);
+            while (num_words > 0) {
+                //Send words by one words at the time
+                fscanf(send_file, "%[^ ]", words_buf);
+                bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, sizeof(words_buf), 0,
+                                    (struct sockaddr *) &client_data->client_addr,
+                                    sizeof(struct sockaddr));
+                if (bytes_sent == -1) {
+                    fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
+                num_words--;
+            }
         }
     }
     close(client_data->client_socket);
     return 0;
 }
+
 
 void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
