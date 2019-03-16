@@ -25,7 +25,7 @@
 #define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
-#define PING_INTERVAL 3
+#define PING_INTERVAL 5
 #define PEER_BUF 10
 
 
