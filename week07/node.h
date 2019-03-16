@@ -28,7 +28,8 @@
 #define PING_INTERVAL 5
 #define PEER_BUF 10
 
-
+#define min(m,n) ((m) < (n) ? (m) : (n))
+#define max(m,n) ((m) > (n) ? (m) : (n))
 typedef struct Peer {
     char name[25];
     char ip_address[20];

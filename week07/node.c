@@ -35,7 +35,7 @@ int find_peer(struct LinkedPeerList *list, struct Peer item) {
     if (list->length == 0)
         return FALSE;
     else if (peer_cmp(item, this_node.self) == TRUE) {
-        return FALSE;
+        return TRUE;
     } else {
         struct LinkedPeerNode *cur = list->self;
         while (cur != NULL && peer_cmp(item, cur->value) == FALSE) {
@@ -202,7 +202,6 @@ void download_file(struct Peer peer, struct PeerFile file) {
         fprintf(stderr, "error on send to send file name: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-
     bytes_received = recvfrom(client_socket, (void *) &p, sizeof(p), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
@@ -430,7 +429,8 @@ void *ping_clients(void *data) {
                     exit(EXIT_FAILURE);
                 }
             }
-
+            printf("pinging :%s:%s:%u has ended\n", peers[i].name,
+                   peers[i].ip_address, peers[i].port);
             //Begin SYNC
 
             //SYNC PEERS
@@ -443,6 +443,7 @@ void *ping_clients(void *data) {
                 exit(EXIT_FAILURE);
             }
             // Get num of peers
+
             bytes_received = recvfrom(connect_fd, (void *) &peer_sync_num, sizeof(peer_sync_num), 0,
                                       (struct sockaddr *) &server_addr,
                                       &addr_len);
@@ -450,6 +451,7 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
+            memset(peer_buf, 0, sizeof(peer_buf));
             while (peer_sync_num > 0) {
                 bytes_received = recvfrom(connect_fd, (void *) &peer_buf, sizeof(peer_buf), 0,
                                           (struct sockaddr *) &server_addr,
@@ -458,11 +460,12 @@ void *ping_clients(void *data) {
                     fprintf(stderr, "error on receive peer buf errno: %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
-                for (int j = 0; j < PEER_BUF; ++j) {
-                    if (find_peer(&this_node.peers, peer_buf[i]) == FALSE) {
+                for (int j = 0; j < min(PEER_BUF, peer_sync_num); ++j) {
+                    if (find_peer(&this_node.peers, peer_buf[j]) == FALSE) {
                         connect_to_peer(peer_buf[i]);
                     }
                 }
+                peer_sync_num -= PEER_BUF;
             }
 
 
@@ -486,7 +489,7 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "error on receive files num errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-
+            memset(file_buf, 0, sizeof(file_buf));
             while (file_sync_num > 0) {
                 bytes_received = recvfrom(connect_fd, (void *) &file_buf, sizeof(file_buf), 0,
                                           (struct sockaddr *) &server_addr,
@@ -495,11 +498,12 @@ void *ping_clients(void *data) {
                     fprintf(stderr, "error on receive file buf errno: %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
-                for (int j = 0; j < PEER_BUF; ++j) {
+                for (int j = 0; j < min(PEER_BUF, file_sync_num); ++j) {
                     if (find_file(&this_node.files, file_buf[i]) == FALSE) {
                         download_file(peers[i], file_buf[i]);
                     }
                 }
+                file_sync_num -= PEER_BUF;
             }
             close(connect_fd);
         }
@@ -542,11 +546,10 @@ void *handle_client(void *data) {
         if (p.type != PROT_SYNC_PEERS) {
             return NULL;
         }
-
-        printf("Got request to sync \n");
         int peer_size = this_node.peers.length;
         struct Peer *sync_peers = malloc(peer_size * sizeof(struct Peer));
         struct Peer peer_buf[PEER_BUF];
+
         bytes_sent = sendto(client_data->client_socket, (void *) &peer_size, sizeof(int), 0,
                             (struct sockaddr *) &client_data->client_addr,
                             sizeof(struct sockaddr));
@@ -555,6 +558,8 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
         get_peers(this_node.peers, sync_peers);
+
+        memset(peer_buf, 0, sizeof(peer_buf));
         while (peer_size > 0) {
             memcpy(peer_buf, sync_peers, sizeof(peer_buf));
             sync_peers += sizeof(peer_buf);
@@ -589,6 +594,8 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
         get_file(this_node.files, sync_files);
+
+        memset(files_buf, 0, sizeof(files_buf));
         while (file_size > 0) {
             memcpy(files_buf, sync_files, sizeof(files_buf));
             sync_files += sizeof(files_buf);
@@ -616,49 +623,50 @@ void *handle_client(void *data) {
                    new_node.port);
             //Add item
             add_peer(&this_node.peers, new_node);
-        } else if (p.type == PROT_GET_FILE) {
-            int num_words;
-            char words_buf[20];
-            struct PeerFile file;
-            FILE *send_file;
-            received_bytes = recvfrom(client_data->client_socket, (void *) &file, sizeof(file), 0,
-                                      (struct sockaddr *) &client_data->client_addr, &addr_len);
-            if (received_bytes == -1) {
-                fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
-                exit(EXIT_FAILURE);
-            }
-            send_file = fopen(file.name, "r+");
-            if (send_file == NULL)
-                p.type = PROT_NO;
-            else
-                p.type = PROT_OK;
+        }
+    } else if (p.type == PROT_GET_FILE) {
+        int num_words;
+        char words_buf[20];
+        struct PeerFile file;
+        FILE *send_file;
+        received_bytes = recvfrom(client_data->client_socket, (void *) &file, sizeof(file), 0,
+                                  (struct sockaddr *) &client_data->client_addr, &addr_len);
+        if (received_bytes == -1) {
+            fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+        send_file = fopen(file.name, "r+");
+        if (send_file == NULL)
+            p.type = PROT_NO;
+        else
+            p.type = PROT_OK;
 
-            bytes_sent = sendto(client_data->client_socket, (void *) &p, sizeof(p), 0,
+        bytes_sent = sendto(client_data->client_socket, (void *) &p, sizeof(p), 0,
+                            (struct sockaddr *) &client_data->client_addr,
+                            sizeof(struct sockaddr));
+        if (bytes_sent == -1) {
+            fprintf(stderr, "Error on sending ack errno : %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
+
+        num_words = words_count(send_file);
+        while (num_words > 0) {
+            //Send words by one words at the time
+            fscanf(send_file, "%[^ ]", words_buf);
+            bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, sizeof(words_buf), 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending ack errno : %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-
-            num_words = words_count(send_file);
-            while (num_words > 0) {
-                //Send words by one words at the time
-                fscanf(send_file, "%[^ ]", words_buf);
-                bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, sizeof(words_buf), 0,
-                                    (struct sockaddr *) &client_data->client_addr,
-                                    sizeof(struct sockaddr));
-                if (bytes_sent == -1) {
-                    fprintf(stderr, "Error on sending ack errno : %d\n", errno);
-                    exit(EXIT_FAILURE);
-                }
-                num_words--;
-            }
+            num_words--;
         }
     }
     close(client_data->client_socket);
     return 0;
 }
+
 //TODO: check self add
 void *initialise_client(void *data) {
     //Set up variables for client socket its address and destination address
