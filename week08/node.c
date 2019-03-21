@@ -194,7 +194,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
         fprintf(stderr, "failed to connect to server to download a file:%d\n", errno);
         exit(EXIT_FAILURE);
     }
-    p.type = PROT_GET_FILE;
+    p.type = PROT_REQUEST;
 
     //Send protocol type
     bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
@@ -213,31 +213,22 @@ void download_file(struct Peer peer, struct PeerFile file) {
         fprintf(stderr, "error on send to send file name: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-
-    //Receive answer from the sever
-    bytes_received = recvfrom(client_socket, (void *) &p, sizeof(p), 0,
+    //Get the size of the file
+    bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
     if (bytes_received == -1) {
-        fprintf(stderr, "error on receive protocol answer to download a file: %d\n", errno);
+        fprintf(stderr, "error on receive file size errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
     //If server doesn't have such file
-    if (p.type == PROT_NO) {
+    if (file_size == -1) {
         close(client_socket);
         return;
-    // If server has such file
-    } else if (p.type == PROT_OK) {
+        // If server has such file
+    } else {
         printf("Beginning the download of %s\n", file.name);
 
-        //Get the size of the file
-        bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
-                                  (struct sockaddr *) &destination_addr,
-                                  &addr_len);
-        if (bytes_received == -1) {
-            fprintf(stderr, "error on receive file size errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
 
         FILE *load_file;
         //Open/create the file
@@ -288,64 +279,10 @@ int words_count(FILE *file) {
     return num_words + 1;
 }
 
-//Connect to a peer
-void connect_to_peer(struct Peer peer) {
-    ssize_t bytes_sent, bytes_received;
-    int client_socket;
-    struct Protocol p;
-    struct sockaddr_in destination_addr;
+//Add peer to a list
+void add_peer_to_a_list(struct Peer peer) {
     if (peer_cmp(peer, this_node.self) == FALSE && find_peer(&this_node.peers, peer) == FALSE) {
-        // Create client's socket from which he will connect
-        socklen_t addr_len = sizeof(struct sockaddr);
-        if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
-            fprintf(stderr, "failed to create a client socket to add a peer errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
-        //Set up ping address
-        destination_addr.sin_family = AF_INET;
-        destination_addr.sin_addr.s_addr = inet_addr(peer.ip_address);
-        destination_addr.sin_port = htons(peer.port);
-
-        //Connect to the server
-        if (connect(client_socket, (struct sockaddr *) &destination_addr, addr_len) == -1) {
-            fprintf(stderr, "failed to connect to server by client to connect a peer errno:%d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
-        p.type = PROT_ADD_PEER;
-        //Send protocol type
-        bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
-                            (struct sockaddr *) &destination_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "error on send protocol on client to connect a peer errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-        addr_len = sizeof(struct sockaddr_in);
-
-        //Get name of the peer
-        bytes_received = recvfrom(client_socket, (void *) &peer.name, sizeof(peer.name), 0,
-                                  (struct sockaddr *) &destination_addr,
-                                  &addr_len);
-        if (bytes_received == -1) {
-            fprintf(stderr, "Error on recv name of the node errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
         // Add address to the list (address of the server)
-        add_peer(&this_node.peers, peer);
-        printf("Got new node! Name: %s:%s:%u\n", peer.name, peer.ip_address,
-               peer.port);
-        //Send data about self
-        bytes_sent = sendto(client_socket, (void *) &this_node.self, sizeof(this_node), 0,
-                            (struct sockaddr *) &destination_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "error on send self info in connect to a peer errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-        close(client_socket);
     }
 }
 
@@ -509,7 +446,7 @@ void *ping_clients(void *data) {
                 for (int j = 0; j < min(PEER_BUF, peer_sync_num); ++j) {
                     if (find_peer(&this_node.peers, peer_buf[j]) == FALSE) {
                         //Try to connect to new peers
-                        connect_to_peer(peer_buf[i]);
+                        add_peer_to_a_list(peer_buf[i]);
                     }
                 }
                 peer_sync_num -= PEER_BUF;
@@ -635,65 +572,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on recv protocol after ping about files errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
-
-        if (p.type != PROT_SYNC_FILES) {
-            return NULL;
-        }
-        int file_size = this_node.files.length;
-        struct PeerFile *sync_files = malloc(file_size * sizeof(struct PeerFile));
-        struct PeerFile files_buf[PEER_BUF];
-
-        //Send number of files
-        bytes_sent = sendto(client_data->client_socket, (void *) &file_size, sizeof(int), 0,
-                            (struct sockaddr *) &client_data->client_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "Error on sending files size errno : %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-        //Get the list of the files
-        get_file(this_node.files, sync_files);
-        memset(files_buf, 0, sizeof(files_buf));
-
-        while (file_size > 0) {
-            memcpy(files_buf, sync_files, sizeof(files_buf));
-            sync_files += sizeof(files_buf);
-            file_size -= PEER_BUF;
-            //Send files buf
-            bytes_sent = sendto(client_data->client_socket, (void *) &files_buf, sizeof(files_buf), 0,
-                                (struct sockaddr *) &client_data->client_addr,
-                                sizeof(struct sockaddr));
-            if (bytes_sent == -1) {
-                fprintf(stderr, "Error on sending files buf errno : %d\n", errno);
-                exit(EXIT_FAILURE);
-            }
-        }
-    } else if (p.type == PROT_ADD_PEER) {
-        //Sent own name
-        bytes_sent = sendto(client_data->client_socket, (void *) &this_node.self.name, sizeof(this_node.self.name), 0,
-                            (struct sockaddr *) &client_data->client_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "Error on sending own name errno : %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
-        //Receive data about self from new client
-        received_bytes = recvfrom(client_data->client_socket, (void *) &new_node, sizeof(new_node), 0,
-                                  (struct sockaddr *) &client_data->client_addr, &addr_len);
-
-        if (received_bytes == -1) {
-            fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
-            exit(EXIT_FAILURE);
-        }
-
-        if (find_peer(&this_node.peers, new_node) == FALSE) {
-            printf("Got new node! Name: %s:%s:%u\n", new_node.name, new_node.ip_address,
-                   new_node.port);
-            //Add item
-            add_peer(&this_node.peers, new_node);
-        }
-    } else if (p.type == PROT_GET_FILE) {
+    } else if (p.type == PROT_REQUEST) {
         //Steps if file was requested
         int num_words;
         char words_buf[20];
@@ -710,26 +589,11 @@ void *handle_client(void *data) {
         //Check if file is present
         send_file = fopen(file.name, "r+");
         //If not return PROT_NO
-        if (send_file == NULL)
-            p.type = PROT_NO;
-        else
-            p.type = PROT_OK;
-        //Send asnwer
-        bytes_sent = sendto(client_data->client_socket, (void *) &p, sizeof(p), 0,
-                            (struct sockaddr *) &client_data->client_addr,
-                            sizeof(struct sockaddr));
-        if (bytes_sent == -1) {
-            fprintf(stderr, "Error on sending ack errno : %d\n", errno);
-            exit(EXIT_FAILURE);
+        if (send_file == NULL) {
+            num_words = -1;
+        } else {
+            num_words = words_count(send_file);
         }
-
-        //Close if no file
-        if (p.type == PROT_NO) {
-            close(client_data->client_socket);
-            return NULL;
-        }
-        printf("Beginning to send file %s \n", file.name);
-        num_words = words_count(send_file);
         //Send number of words
         bytes_sent = sendto(client_data->client_socket, (void *) &num_words, sizeof(num_words), 0,
                             (struct sockaddr *) &client_data->client_addr,
@@ -738,6 +602,13 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on sending num words errno : %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        //Close if no file
+        if (num_words == -1) {
+            close(client_data->client_socket);
+            return NULL;
+        }
+        printf("Beginning to send file %s \n", file.name);
+
 
         //Send number of words
         while (num_words > 0) {
@@ -763,7 +634,7 @@ void *handle_client(void *data) {
 void *initialise_client(void *data) {
     struct Peer new_peer;
     new_peer = *((struct Peer *) data);
-    connect_to_peer(new_peer);
+    add_peer_to_a_list(new_peer);
     return 0;
 }
 
