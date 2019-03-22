@@ -24,6 +24,7 @@
 
 #define min(m, n) ((m) < (n) ? (m) : (n))
 #define max(m, n) ((m) > (n) ? (m) : (n))
+#define SYN_BUF 1024
 typedef struct Peer {
     char name[25];
     char ip_address[20];
@@ -41,6 +42,7 @@ struct LinkedPeerList {
 
 struct PeerFile {
     char name[25];
+    Peer *owner;
 };
 struct LinkedFileNode {
     struct LinkedFileNode *next, *previous;
