@@ -170,6 +170,18 @@ void get_file(struct LinkedFileList list, struct PeerFile *files) {
     }
 }
 
+int not_yours_files(void) {
+    int i = 0;
+    struct LinkedFileNode *cur = this_node.files.self;
+    while (cur != NULL) {
+        if (peer_cmp(cur->value.owner, this_node.self) == FALSE) {
+            i++;
+        }
+        cur = cur->next;
+    }
+    return i;
+}
+
 //Download new file
 void download_file(struct Peer peer, struct PeerFile file) {
     add_file(&this_node.files, file);
@@ -608,7 +620,7 @@ int main(void) {
         uint16_t port;
         char buf[2];
         printf("What do you want to do?\n");
-        printf("To connect - 1. To add file - 2. To download file - 3. To list all files - 4. (Server works on background)\n");
+        printf("To connect - 1. To add file - 2. To download file - 3. To list all available files - 4. To list all yours - 5. (Server works on background)\n");
         read(0, buf, sizeof(buf));
         fflush(stdin);
         buf[1] = '\0';
@@ -658,13 +670,29 @@ int main(void) {
             }
         } else if (strcmp(buf, "4") == 0) {
             //Show list of files
-            if (this_node.files.length == 0) {
-                printf("No files available");
+            if (not_yours_files() == 0) {
+                printf("No files available\n");
             } else {
                 printf("All possible files:\n");
                 struct LinkedFileNode *cur = this_node.files.self;
                 while (cur != NULL) {
-                    printf("%s from %s\n", cur->value.name, cur->value.owner.name);
+                    if (peer_cmp(cur->value.owner, this_node.self) == FALSE) {
+                        printf("%s from %s\n", cur->value.name, cur->value.owner.name);
+                    }
+                    cur = cur->next;
+                }
+            }
+        } else if (strcmp(buf, "5") == 0) {
+            //Show list of files
+            if (not_yours_files() != 0) {
+                printf("No files available\n");
+            } else {
+                printf("Your files:\n");
+                struct LinkedFileNode *cur = this_node.files.self;
+                while (cur != NULL) {
+                    if (peer_cmp(cur->value.owner, this_node.self) == TRUE) {
+                        printf("%s\n", cur->value.name);
+                    }
                     cur = cur->next;
                 }
             }
