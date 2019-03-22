@@ -119,18 +119,18 @@ void add_file(struct LinkedFileList *list, struct PeerFile file) {
 }
 
 //Find file in the linked file list
-int find_file(struct LinkedFileList *list, struct PeerFile file) {
+struct PeerFile *find_file(struct LinkedFileList *list, struct PeerFile file) {
     if (list->length == 0)
-        return FALSE;
+        return NULL;
     else {
         struct LinkedFileNode *cur = list->self;
         while (cur != NULL && file_cmp(file, cur->value) == FALSE) {
             cur = cur->next;
         }
         if (cur == NULL) {
-            return FALSE;
+            return NULL;
         }
-        return TRUE;
+        return &cur->value;
     }
 }
 
@@ -172,7 +172,6 @@ void get_file(struct LinkedFileList list, struct PeerFile *files) {
 
 //Download new file
 void download_file(struct Peer peer, struct PeerFile file) {
-    printf("Got new file %s \n", file.name);
     add_file(&this_node.files, file);
     ssize_t bytes_sent, bytes_received;
     int client_socket, file_size;
@@ -364,8 +363,8 @@ void *ping_clients(void *data) {
         peers = (Peer *) realloc(peers, sizeof(Peer) * peer_num);
         get_peers(this_node.peers, peers);
         for (int i = 0; i < peer_num; ++i) {
-            printf("Syncing with Name: %s:%s:%u\n", peers[i].name, peers[i].ip_address,
-                   peers[i].port);
+//            printf("Syncing with Name: %s:%s:%u\n", peers[i].name, peers[i].ip_address,
+//                   peers[i].port);
             addr_len = sizeof(server_addr);
             p.type = PROT_SYN;
             //Create new socket for the ping duration
@@ -383,6 +382,13 @@ void *ping_clients(void *data) {
             if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
                 if (errno == ECONNREFUSED) {
                     printf("Node Name:%s:%s:%u left\n", peers[i].name,
+                           peers[i].ip_address, peers[i].port);
+                    //Remove item from the list
+                    remove_peer(&this_node.peers, peers[i]);
+                    close(connect_fd);
+                    continue;
+                } else if (errno == ENETUNREACH) {
+                    printf("Node Name:%s:%s:%u is unreachable\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the list
                     remove_peer(&this_node.peers, peers[i]);
@@ -411,7 +417,6 @@ void *ping_clients(void *data) {
             //Build files info
             cur_len = strlen(syn_buffer);
             while (cur != NULL) {
-                printf("%s\n", cur->value.name);
                 sprintf(syn_buffer + cur_len, "%s,", cur->value.name);
                 cur = cur->next;
                 cur_len = strlen(syn_buffer);
@@ -465,7 +470,7 @@ void *handle_client(void *data) {
     struct PeerFile tmp_file;
     struct Peer new_node, peer_buf;
     struct Protocol p;
-    int cur_len, peer_sync_num;
+    int cur_len, peer_sync_num, im_len;
 
     //Receive protocol data from client
     bytes_received = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
@@ -493,11 +498,16 @@ void *handle_client(void *data) {
         sscanf(syn_buf, "%[^:]:%[^:]:%hu: %n", new_node.name, new_node.ip_address, &new_node.port, &cur_len);
         //Set name
         add_peer_to_a_list(new_node);
-        while (sscanf(syn_buf + cur_len, "%[^,], %n", small_file_buf, &cur_len) != EOF) {
+        while (sscanf(syn_buf + cur_len, "%[^,],%n", small_file_buf, &im_len) != EOF) {
+            cur_len += im_len;
             memset(&tmp_file, 0, sizeof(tmp_file));
             strcpy(tmp_file.name, small_file_buf);
-            tmp_file.owner = new_node;
-            add_file(&this_node.files, tmp_file);
+            if (find_file(&this_node.files, tmp_file) == FALSE) {
+                //Add file if not present
+                printf("Got new file %s \n", tmp_file.name);
+                tmp_file.owner = new_node;
+                add_file(&this_node.files, tmp_file);
+            }
         }
 
         // Get num of peers
@@ -524,7 +534,6 @@ void *handle_client(void *data) {
             add_peer_to_a_list(peer_buf);
             peer_sync_num--;
         }
-        printf("closed\n");
     } else if (p.type == PROT_REQUEST) {
         //Steps if file was requested
         int num_words;
@@ -599,13 +608,15 @@ int main(void) {
         uint16_t port;
         char buf[2];
         printf("What do you want to do?\n");
-        printf("To connect - 1. To add file - 2. (Server works on background)\n");
+        printf("To connect - 1. To add file - 2. To download file - 3. To list all files - 4. (Server works on background)\n");
         read(0, buf, sizeof(buf));
+        fflush(stdin);
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
             //Add connection
             printf("Enter IP:Port of the server\n");
             scanf("%[^:]:%hu", ip, &port);
+            memset(&new_peer, 0, sizeof(new_peer));
             strcpy(new_peer.ip_address, ip);
             new_peer.port = port;
             new_peer.name[0] = ' ';
@@ -627,7 +638,35 @@ int main(void) {
                 memset(&file1, 0, sizeof(struct PeerFile));
                 strcpy(file1.name, file_buf);
                 fclose(file);
+                file1.owner = this_node.self;
                 add_file(&this_node.files, file1);
+            }
+        } else if (strcmp(buf, "3") == 0) {
+            //Download file
+            char file_buf[26];
+            struct PeerFile *file, file_b;
+            printf("Enter filename\n");
+            bytes_read = read(0, file_buf, sizeof(file_buf) - 1);
+            file_buf[bytes_read - 1] = '\0';
+            fflush(stdin);
+            memset(&file_b, 0, sizeof(file_b));
+            strcpy(file_b.name, file_buf);
+            if ((file = find_file(&this_node.files, file_b)) == NULL) {
+                printf("No such file available\n");
+            } else {
+                download_file(file->owner, *file);
+            }
+        } else if (strcmp(buf, "4") == 0) {
+            //Show list of files
+            if (this_node.files.length == 0) {
+                printf("No files available");
+            } else {
+                printf("All possible files:\n");
+                struct LinkedFileNode *cur = this_node.files.self;
+                while (cur != NULL) {
+                    printf("%s from %s\n", cur->value.name, cur->value.owner.name);
+                    cur = cur->next;
+                }
             }
         }
     }
