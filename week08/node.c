@@ -476,10 +476,10 @@ void *ping_clients(void *data) {
             }
             get_peers(this_node.peers, sync_peers);
             //Send one peer at a time
-            memset(p_buf, 0, sizeof(p_buf));
             int j = 0;
             while (peer_size > 0) {
                 //Send peers buffer
+                memset(p_buf, 0, sizeof(p_buf));
                 sprintf(p_buf, "%s:%s:%hu:", sync_peers[j].name, sync_peers[j].ip_address, sync_peers[j].port);
                 bytes_sent = sendto(connect_fd, (void *) &p_buf, sizeof(p_buf), 0,
                                     (struct sockaddr *) &server_addr,
@@ -570,7 +570,7 @@ void *handle_client(void *data) {
             }
             sscanf(p_buf, "%[^:]:%[^:]:%hu", peer_buf.name, peer_buf.ip_address, &peer_buf.port);
             //Try to connect to new peers
-            printf("%s\n", p_buf);
+            printf("peer %s from %s\n", p_buf, new_node.name);
             add_peer_to_a_list(peer_buf);
             peer_sync_num--;
         }
