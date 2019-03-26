@@ -454,6 +454,7 @@ void *ping_clients(void *data) {
                 cur = cur->next;
                 cur_len = strlen(syn_buffer);
             }
+            printf("sending self info %s", syn_buffer);
             //send self info
             bytes_sent = sendto(connect_fd, (void *) &syn_buffer, sizeof(syn_buffer), 0,
                                 (struct sockaddr *) &server_addr,
@@ -474,6 +475,7 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "Error on sending peer size errno : %d\n", errno);
                 exit(EXIT_FAILURE);
             }
+            printf("sending %d", peer_size);
             get_peers(this_node.peers, sync_peers);
             //Send one peer at a time
             int j = 0;
@@ -521,10 +523,11 @@ void *handle_client(void *data) {
         //SYNC PEERS
         char syn_buf[BUF_SIZE], small_file_buf[BUF_SIZE], p_buf[BUF_SIZE];
         memset(syn_buf, 0, sizeof(syn_buf));
-        // Get self info25
+        // Get self info
         bytes_received = recvfrom(client_data->client_socket, (void *) &syn_buf, sizeof(syn_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
+        printf("got self info %s\n", syn_buf);
         if (bytes_received == -1) {
             fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
@@ -557,6 +560,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        printf("%d peers from %s", peer_sync_num, new_node.name);
         //Get peer one at a time
         while (peer_sync_num > 0) {
             memset(p_buf, 0, sizeof(p_buf));
