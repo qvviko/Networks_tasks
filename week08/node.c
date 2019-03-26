@@ -490,7 +490,7 @@ void *ping_clients(void *data) {
                     fprintf(stderr, "Error on sending peer buf errno : %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
-                i++;
+                j++;
                 peer_size--;
             }
             close(connect_fd);
