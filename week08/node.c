@@ -184,12 +184,11 @@ int not_yours_files(void) {
 
 //Download new file
 void download_file(struct Peer peer, struct PeerFile file) {
-    add_file(&this_node.files, file);
     ssize_t bytes_sent, bytes_received;
     int client_socket, file_size;
+    char file_buf[BUF_SIZE];
     struct Protocol p;
     struct sockaddr_in destination_addr;
-
     // Create client's socket from which he will connect
     socklen_t addr_len = sizeof(struct sockaddr);
     if ((client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -215,9 +214,9 @@ void download_file(struct Peer peer, struct PeerFile file) {
         fprintf(stderr, "error on send protocol to load a file: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-
+    strcpy(file_buf, file.name);
     //Send file name
-    bytes_sent = sendto(client_socket, (void *) &file, sizeof(struct PeerFile), 0,
+    bytes_sent = sendto(client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
     if (bytes_sent == -1) {
@@ -238,14 +237,14 @@ void download_file(struct Peer peer, struct PeerFile file) {
         return;
         // If server has such file
     } else {
-        printf("Beginning the download of %s\n", file.name);
+        printf("Beginning the download of %s with size %d\n", file.name, file_size);
 
 
         FILE *load_file;
         //Open/create the file
         load_file = fopen(file.name, "w+");
         while (file_size > 0) {
-            char buf[20];
+            char buf[BUF_SIZE];
             memset(buf, 0, sizeof(buf));
             //Get next word
             bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
@@ -282,7 +281,7 @@ int words_count(FILE *file) {
     while ((c = getc(file)) != EOF) {
         if (isalpha(c)) {
             continue;
-        } else if (c == ' ') {
+        } else if (c == ' ' || c == '\n') {
             num_words++;
         }
     }
@@ -420,7 +419,7 @@ void *ping_clients(void *data) {
                 exit(EXIT_FAILURE);
             }
             //If successfully pinged - begin SYNC
-            char syn_buffer[SYN_BUF], p_buf[100];
+            char syn_buffer[BUF_SIZE], p_buf[BUF_SIZE];
             struct LinkedFileNode *cur = this_node.files.self;
             memset(syn_buffer, 0, sizeof(syn_buffer));
             //Begin sync process
@@ -456,9 +455,10 @@ void *ping_clients(void *data) {
             get_peers(this_node.peers, sync_peers);
             //Send one peer at a time
             memset(p_buf, 0, sizeof(p_buf));
+            int j = 0;
             while (peer_size > 0) {
                 //Send peers buffer
-                sprintf(p_buf, "%s:%s:%hu", sync_peers[0].name, sync_peers[0].ip_address, sync_peers[0].port);
+                sprintf(p_buf, "%s:%s:%hu:", sync_peers[j].name, sync_peers[j].ip_address, sync_peers[j].port);
                 bytes_sent = sendto(connect_fd, (void *) &p_buf, sizeof(p_buf), 0,
                                     (struct sockaddr *) &server_addr,
                                     sizeof(struct sockaddr));
@@ -466,7 +466,7 @@ void *ping_clients(void *data) {
                     fprintf(stderr, "Error on sending peer buf errno : %d\n", errno);
                     exit(EXIT_FAILURE);
                 }
-                sync_peers += sizeof(Peer);
+                i++;
                 peer_size--;
             }
             close(connect_fd);
@@ -482,7 +482,8 @@ void *handle_client(void *data) {
     struct PeerFile tmp_file;
     struct Peer new_node, peer_buf;
     struct Protocol p;
-    int cur_len, peer_sync_num, im_len;
+    size_t cur_len;
+    int peer_sync_num;
 
     //Receive protocol data from client
     bytes_received = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
@@ -496,25 +497,29 @@ void *handle_client(void *data) {
     if (p.type == PROT_SYN) {
 
         //SYNC PEERS
-        char syn_buf[SYN_BUF], small_file_buf[25], p_buf[100];
+        char syn_buf[BUF_SIZE], small_file_buf[BUF_SIZE], p_buf[BUF_SIZE];
         memset(syn_buf, 0, sizeof(syn_buf));
-        // Get self info
+        // Get self info25
         bytes_received = recvfrom(client_data->client_socket, (void *) &syn_buf, sizeof(syn_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
         if (bytes_received == -1) {
-            fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
+            fprintf(stderr, "error on receive nuchamber of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        char port[10];
         //Set up name and files
-        sscanf(syn_buf, "%[^:]:%[^:]:%hu: %n", new_node.name, new_node.ip_address, &new_node.port, &cur_len);
+        sscanf(syn_buf, "%[^:]:%[^:]:%[^:]:", new_node.name, new_node.ip_address, port);
+        sscanf(port, "%hu", &new_node.port);
+        cur_len = strlen(new_node.name) + strlen(new_node.ip_address) + strlen(port) + 3;
         //Set name
         add_peer_to_a_list(new_node);
-        while (sscanf(syn_buf + cur_len, "%[^,],%n", small_file_buf, &im_len) != EOF) {
-            cur_len += im_len;
+        while (sscanf(syn_buf + cur_len, "%[^,],", small_file_buf) != EOF) {
+            cur_len += strlen(small_file_buf) + 1;
             memset(&tmp_file, 0, sizeof(tmp_file));
             strcpy(tmp_file.name, small_file_buf);
             if (find_file(&this_node.files, tmp_file) == FALSE) {
+
                 //Add file if not present
                 printf("Got new file %s \n", tmp_file.name);
                 tmp_file.owner = new_node;
@@ -549,19 +554,20 @@ void *handle_client(void *data) {
     } else if (p.type == PROT_REQUEST) {
         //Steps if file was requested
         int num_words;
-        char words_buf[20];
-        struct PeerFile file;
+        char words_buf[BUF_SIZE];
+        char file_buf[BUF_SIZE];
         FILE *send_file;
 
         //Get file name
-        bytes_received = recvfrom(client_data->client_socket, (void *) &file, sizeof(file), 0,
+        bytes_received = recvfrom(client_data->client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr, &addr_len);
         if (bytes_received == -1) {
             fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        printf("Got request for %s\n", file_buf);
         //Check if file is present
-        send_file = fopen(file.name, "r+");
+        send_file = fopen(file_buf, "r+");
         //If not return PROT_NO
         if (send_file == NULL) {
             num_words = -1;
@@ -581,22 +587,26 @@ void *handle_client(void *data) {
             close(client_data->client_socket);
             return NULL;
         }
-        printf("Beginning to send file %s \n", file.name);
+        printf("Beginning to send file %s \n", file_buf);
 
 
         //Send number of words
-        while (num_words > 0) {
+        for (int i = 0; i < num_words; ++i) {
             //Send words by one words at the time
             memset(words_buf, 0, sizeof(words_buf));
-            fscanf(send_file, "%[^ ] ", words_buf);
-            bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, sizeof(words_buf), 0,
+            fscanf(send_file, "%s", words_buf);
+
+            bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, BUF_SIZE, 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
+            if (bytes_sent == 0) {
+                fprintf(stderr, "WTF\n");
+            }
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending words buf errno : %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-            num_words--;
+
         }
         printf("Ended transmitting\n");
 
@@ -666,6 +676,7 @@ int main(void) {
             if ((file = find_file(&this_node.files, file_b)) == NULL) {
                 printf("No such file available\n");
             } else {
+                printf("%s %s\n", file->owner.name, file->owner.ip_address);
                 download_file(file->owner, *file);
             }
         } else if (strcmp(buf, "4") == 0) {

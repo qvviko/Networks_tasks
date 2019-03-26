@@ -16,17 +16,14 @@
 #define PROT_REQUEST 0
 #define PROT_SYN 1
 #define SERVER_PORT     1337
-#define MY_IP_ADDRESS "10.91.46.102"
+#define MY_IP_ADDRESS "10.240.17.15"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
-#define PEER_BUF 10
 
-#define min(m, n) ((m) < (n) ? (m) : (n))
-#define max(m, n) ((m) > (n) ? (m) : (n))
-#define SYN_BUF 1024
+#define BUF_SIZE 1024
 typedef struct Peer {
-    char name[25];
+    char name[BUF_SIZE];
     char ip_address[20];
     uint16_t port;
 } Peer;
@@ -41,7 +38,7 @@ struct LinkedPeerList {
 
 
 struct PeerFile {
-    char name[25];
+    char name[BUF_SIZE];
     Peer owner;
 };
 struct LinkedFileNode {
@@ -53,7 +50,7 @@ struct LinkedFileList {
     struct LinkedFileNode *self;
 };
 struct Protocol {
-    short type;
+    int type;
 };
 
 struct greet_client_data {
