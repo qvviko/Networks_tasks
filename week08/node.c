@@ -558,8 +558,8 @@ void *handle_client(void *data) {
             exit(EXIT_FAILURE);
         }
         //Get peer one at a time
-        memset(p_buf, 0, sizeof(p_buf));
         while (peer_sync_num > 0) {
+            memset(p_buf, 0, sizeof(p_buf));
             //Receive buffer of peers
             bytes_received = recvfrom(client_data->client_socket, (void *) &p_buf, sizeof(p_buf), 0,
                                       (struct sockaddr *) &client_data->client_addr,
@@ -570,6 +570,7 @@ void *handle_client(void *data) {
             }
             sscanf(p_buf, "%[^:]:%[^:]:%hu", peer_buf.name, peer_buf.ip_address, &peer_buf.port);
             //Try to connect to new peers
+            printf("%s\n", p_buf);
             add_peer_to_a_list(peer_buf);
             peer_sync_num--;
         }
@@ -726,6 +727,8 @@ int main(void) {
                     cur = cur->next;
                 }
             }
+        } else {
+            fflush(stdin);
         }
     }
 }
