@@ -20,6 +20,7 @@
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
+#define DEBUG FALSE
 
 #define BUF_SIZE 1024
 typedef struct Peer {

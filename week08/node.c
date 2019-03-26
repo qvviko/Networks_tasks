@@ -527,7 +527,8 @@ void *handle_client(void *data) {
         bytes_received = recvfrom(client_data->client_socket, (void *) &syn_buf, sizeof(syn_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
-        printf("got self info %s\n", syn_buf);
+        if (DEBUG)
+            printf("got self info %s\n", syn_buf);
         if (bytes_received == -1) {
             fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
@@ -546,7 +547,8 @@ void *handle_client(void *data) {
             if (find_file(&this_node.files, tmp_file) == FALSE) {
 
                 //Add file if not present
-                printf("Got new file %s \n", tmp_file.name);
+                if (DEBUG)
+                    printf("Got new file %s \n", tmp_file.name);
                 tmp_file.owner = new_node;
                 add_file(&this_node.files, tmp_file);
             }
@@ -560,7 +562,8 @@ void *handle_client(void *data) {
             fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
-        printf("%d peers from %s\n", peer_sync_num, new_node.name);
+        if (DEBUG)
+            printf("%d peers from %s\n", peer_sync_num, new_node.name);
         //Get peer one at a time
         while (peer_sync_num > 0) {
             memset(p_buf, 0, sizeof(p_buf));
@@ -574,7 +577,8 @@ void *handle_client(void *data) {
             }
             sscanf(p_buf, "%[^:]:%[^:]:%hu", peer_buf.name, peer_buf.ip_address, &peer_buf.port);
             //Try to connect to new peers
-            printf("peer %s from %s\n", p_buf, new_node.name);
+            if (DEBUG)
+                printf("peer %s from %s\n", p_buf, new_node.name);
             add_peer_to_a_list(peer_buf);
             peer_sync_num--;
         }
