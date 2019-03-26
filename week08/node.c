@@ -182,6 +182,16 @@ int not_yours_files(void) {
     return i;
 }
 
+void remove_files(Peer peer) {
+    struct LinkedFileNode *cur = this_node.files.self;
+    while (cur != NULL) {
+        if (peer_cmp(cur->value.owner, peer) == TRUE) {
+            remove_file(&this_node.files, cur->value);
+        }
+        cur = cur->next;
+    }
+}
+
 //Download new file
 void download_file(struct Peer peer, struct PeerFile file) {
     ssize_t bytes_sent, bytes_received;
@@ -327,7 +337,13 @@ void *initialise_server(void *data) {
 
     //Bind server socket to server
     if ((bind(server_socket, (struct sockaddr *) &server_addr, sizeof(struct sockaddr)) == -1)) {
-        fprintf(stderr, "failed to bind server socket errno: %d\n", errno);
+        if (errno == EADDRNOTAVAIL)
+            fprintf(stderr, "Failed to bind, check that MY_IP_SERVER corresponds to your IP");
+        else if (errno == EADDRINUSE)
+            fprintf(stderr, "Address already in use, check that port SERVER_PORT is free");
+        else {
+            fprintf(stderr, "failed to bind server socket errno: %d\n", errno);
+        }
         exit(EXIT_FAILURE);
     }
 
@@ -396,6 +412,7 @@ void *ping_clients(void *data) {
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the list
                     remove_peer(&this_node.peers, peers[i]);
+                    remove_files(peers[i]);
                     close(connect_fd);
                     continue;
                 } else if (errno == ENETUNREACH) {
@@ -403,6 +420,7 @@ void *ping_clients(void *data) {
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the list
                     remove_peer(&this_node.peers, peers[i]);
+                    remove_files(peers[i]);
                     close(connect_fd);
                     continue;
                 } else {
@@ -428,7 +446,10 @@ void *ping_clients(void *data) {
             //Build files info
             cur_len = strlen(syn_buffer);
             while (cur != NULL) {
-                sprintf(syn_buffer + cur_len, "%s,", cur->value.name);
+                if (cur->next == NULL)
+                    sprintf(syn_buffer + cur_len, "%s", cur->value.name);
+                else
+                    sprintf(syn_buffer + cur_len, "%s,", cur->value.name);
                 cur = cur->next;
                 cur_len = strlen(syn_buffer);
             }
@@ -599,9 +620,6 @@ void *handle_client(void *data) {
             bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, BUF_SIZE, 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
-            if (bytes_sent == 0) {
-                fprintf(stderr, "WTF\n");
-            }
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending words buf errno : %d\n", errno);
                 exit(EXIT_FAILURE);
