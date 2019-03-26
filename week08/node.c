@@ -243,6 +243,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
     }
     //If server doesn't have such file
     if (file_size == -1) {
+        printf("Server doesn't have file %s in their system!\n", file.name);
         close(client_socket);
         return;
         // If server has such file
@@ -525,7 +526,7 @@ void *handle_client(void *data) {
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
         if (bytes_received == -1) {
-            fprintf(stderr, "error on receive nuchamber of peers errno: %d\n", errno);
+            fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
         char port[10];
