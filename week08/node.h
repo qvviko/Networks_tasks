@@ -15,12 +15,21 @@
 #define CONNECT_N       10
 #define PROT_REQUEST 0
 #define PROT_SYN 1
-#define SERVER_PORT     1333
-#define MY_IP_ADDRESS "192.168.1.67"
+#define SERVER_PORT     1337
+#define MY_IP_ADDRESS "192.168.0.100"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
 #define DEBUG FALSE
+
+
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 #define BUF_SIZE 1024
 typedef struct Peer {
@@ -41,6 +50,7 @@ struct LinkedPeerList {
 struct PeerFile {
     char name[BUF_SIZE];
     Peer owner;
+    int is_loaded;
 };
 struct LinkedFileNode {
     struct LinkedFileNode *next, *previous;

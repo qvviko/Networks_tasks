@@ -186,6 +186,8 @@ void remove_files(Peer peer) {
     struct LinkedFileNode *cur = this_node.files.self;
     while (cur != NULL) {
         if (peer_cmp(cur->value.owner, peer) == TRUE) {
+            printf(ANSI_COLOR_GREEN "Removing file %s from peer %s" ANSI_COLOR_RESET "\n", cur->value.owner.name,
+                   cur->value.name);
             remove_file(&this_node.files, cur->value);
         }
         cur = cur->next;
@@ -243,12 +245,13 @@ void download_file(struct Peer peer, struct PeerFile file) {
     }
     //If server doesn't have such file
     if (file_size == -1) {
-        printf("Server doesn't have file %s in their system!\n", file.name);
+        printf(ANSI_COLOR_GREEN "Server doesn't have file %s in their system!" ANSI_COLOR_RESET"\n", file.name);
         close(client_socket);
         return;
         // If server has such file
     } else {
-        printf("Beginning the download of %s with size %d\n", file.name, file_size);
+        printf(ANSI_COLOR_GREEN "Beginning the download of %s with size %d\n" ANSI_COLOR_RESET"\n", file.name,
+               file_size);
 
 
         FILE *load_file;
@@ -275,7 +278,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
             }
         }
         fclose(load_file);
-        printf("Loaded file %s\n", file.name);
+        printf(ANSI_COLOR_GREEN "Loaded file %s" ANSI_COLOR_RESET"\n", file.name);
         close(client_socket);
     }
 }
@@ -303,7 +306,7 @@ int words_count(FILE *file) {
 //Add peer to a list
 void add_peer_to_a_list(struct Peer peer) {
     if (peer_cmp(peer, this_node.self) == FALSE && find_peer(&this_node.peers, peer) == FALSE) {
-        printf("Got new node! Name: %s:%u\n", peer.ip_address,
+        printf(ANSI_COLOR_GREEN "Got new node! Name: %s:%u" ANSI_COLOR_RESET "\n", peer.ip_address,
                peer.port);
         // Add address to the list (address of the server)
         add_peer(&this_node.peers, peer);
@@ -353,6 +356,8 @@ void *initialise_server(void *data) {
     strcpy(this_node.self.ip_address, MY_IP_ADDRESS);
     this_node.self.port = SERVER_PORT;
 
+    printf(ANSI_COLOR_GREEN "Your address: %s:%hu" ANSI_COLOR_RESET "\n", this_node.self.ip_address,
+           this_node.self.port);
     //Begin listening
     if (listen(server_socket, CONNECT_N) < 0) {
         fprintf(stderr, "failed to listen server errno: %d\n", errno);
@@ -408,8 +413,8 @@ void *ping_clients(void *data) {
 
             //Try to connect to the node
             if (connect(connect_fd, (struct sockaddr *) &server_addr, addr_len) == -1) {
-                if (errno == ECONNREFUSED) {
-                    printf("Node Name:%s:%s:%u left\n", peers[i].name,
+                if (errno == ECONNREFUSED || errno == ETIMEDOUT) {
+                    printf(ANSI_COLOR_GREEN "Node Name:%s:%s:%u left" ANSI_COLOR_RESET "\n", peers[i].name,
                            peers[i].ip_address, peers[i].port);
                     //Remove item from the list
                     remove_peer(&this_node.peers, peers[i]);
@@ -549,8 +554,7 @@ void *handle_client(void *data) {
             if (find_file(&this_node.files, tmp_file) == FALSE) {
 
                 //Add file if not present
-                if (DEBUG)
-                    printf("Got new file %s \n", tmp_file.name);
+                printf(ANSI_COLOR_GREEN "Got new file %s" ANSI_COLOR_RESET "\n", tmp_file.name);
                 tmp_file.owner = new_node;
                 add_file(&this_node.files, tmp_file);
             }
@@ -598,7 +602,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
-        printf("Got request for %s\n", file_buf);
+        printf(ANSI_COLOR_GREEN "Got request for %s" ANSI_COLOR_RESET "\n", file_buf);
         //Check if file is present
         send_file = fopen(file_buf, "r+");
         //If not return PROT_NO
@@ -620,7 +624,7 @@ void *handle_client(void *data) {
             close(client_data->client_socket);
             return NULL;
         }
-        printf("Beginning to send file %s \n", file_buf);
+        printf(ANSI_COLOR_GREEN "Beginning to send file %s" ANSI_COLOR_RESET "\n", file_buf);
 
 
         //Send number of words
@@ -638,7 +642,7 @@ void *handle_client(void *data) {
             }
 
         }
-        printf("Ended transmitting\n");
+        printf(ANSI_COLOR_GREEN "Ended transmitting" ANSI_COLOR_RESET "\n");
 
     }
     close(client_data->client_socket);
@@ -649,24 +653,24 @@ int main(void) {
     pthread_t server;
     ssize_t bytes_read;
     memset(&this_node, 0, sizeof(this_node));
-    printf("How should I call you?\n");
+    printf(ANSI_COLOR_GREEN "How should I call you?" ANSI_COLOR_RESET "\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
     this_node.self.name[bytes_read - 1] = '\0';
-    printf("Ok! Your name is: %s\n", this_node.self.name);
+    printf(ANSI_COLOR_GREEN "Ok! Your name is: %s" ANSI_COLOR_RESET "\n", this_node.self.name);
     pthread_create(&server, NULL, initialise_server, NULL);
     while (TRUE) {
         struct Peer new_peer;
         char ip[20];
         uint16_t port;
         char buf[2];
-        printf("What do you want to do?\n");
-        printf("To connect - 1. To add file - 2. To download file - 3. To list all available files - 4. To list all yours - 5. (Server works on background)\n");
+        printf(ANSI_COLOR_GREEN "What do you want to do?" ANSI_COLOR_RESET "\n");
+        printf(ANSI_COLOR_GREEN "To connect - 1. To add file - 2. To download file - 3. To list all available files - 4. To list all yours - 5. (Server works on background)" ANSI_COLOR_RESET "\n");
         read(0, buf, sizeof(buf));
         fflush(stdin);
         buf[1] = '\0';
         if (strcmp(buf, "1") == 0) {
             //Add connection
-            printf("Enter IP:Port of the server\n");
+            printf(ANSI_COLOR_GREEN "Enter IP:Port of the server" ANSI_COLOR_RESET "\n");
             scanf("%[^:]:%hu", ip, &port);
             memset(&new_peer, 0, sizeof(new_peer));
             strcpy(new_peer.ip_address, ip);
@@ -677,15 +681,15 @@ int main(void) {
             // Add file
             char file_buf[26];
             FILE *file;
-            printf("Enter filename\n");
+            printf(ANSI_COLOR_GREEN "Enter filename" ANSI_COLOR_RESET "\n");
             bytes_read = read(0, file_buf, sizeof(file_buf) - 1);
             file_buf[bytes_read - 1] = '\0';
             file = fopen(file_buf, "r+");
             fflush(stdin);
             if (file == NULL) {
-                printf("No such file exists\n");
+                printf(ANSI_COLOR_GREEN "No such file exists" ANSI_COLOR_RESET "\n");
             } else {
-                printf("Added file %s\n", file_buf);
+                printf(ANSI_COLOR_GREEN "Added file %s" ANSI_COLOR_RESET "\n", file_buf);
                 struct PeerFile file1;
                 memset(&file1, 0, sizeof(struct PeerFile));
                 strcpy(file1.name, file_buf);
@@ -697,14 +701,14 @@ int main(void) {
             //Download file
             char file_buf[26];
             struct PeerFile *file, file_b;
-            printf("Enter filename\n");
+            printf(ANSI_COLOR_GREEN "Enter filename" ANSI_COLOR_RESET "\n");
             bytes_read = read(0, file_buf, sizeof(file_buf) - 1);
             file_buf[bytes_read - 1] = '\0';
             fflush(stdin);
             memset(&file_b, 0, sizeof(file_b));
             strcpy(file_b.name, file_buf);
             if ((file = find_file(&this_node.files, file_b)) == NULL) {
-                printf("No such file available\n");
+                printf(ANSI_COLOR_GREEN "No such file available" ANSI_COLOR_RESET "\n");
             } else {
                 printf("%s %s\n", file->owner.name, file->owner.ip_address);
                 download_file(file->owner, *file);
@@ -712,13 +716,14 @@ int main(void) {
         } else if (strcmp(buf, "4") == 0) {
             //Show list of files
             if (not_yours_files() == 0) {
-                printf("No files available\n");
+                printf(ANSI_COLOR_GREEN "No files available" ANSI_COLOR_RESET "\n");
             } else {
-                printf("All possible files:\n");
+                printf(ANSI_COLOR_GREEN "All possible files:" ANSI_COLOR_RESET "\n");
                 struct LinkedFileNode *cur = this_node.files.self;
                 while (cur != NULL) {
                     if (peer_cmp(cur->value.owner, this_node.self) == FALSE) {
-                        printf("%s from %s\n", cur->value.name, cur->value.owner.name);
+                        printf(ANSI_COLOR_GREEN "%s from %s" ANSI_COLOR_RESET "\n", cur->value.name,
+                               cur->value.owner.name);
                     }
                     cur = cur->next;
                 }
@@ -726,13 +731,13 @@ int main(void) {
         } else if (strcmp(buf, "5") == 0) {
             //Show list of files
             if (not_yours_files() != 0) {
-                printf("No files available\n");
+                printf(ANSI_COLOR_GREEN "No files available" ANSI_COLOR_RESET "\n");
             } else {
-                printf("Your files:\n");
+                printf(ANSI_COLOR_GREEN "Your files:" ANSI_COLOR_RESET "\n");
                 struct LinkedFileNode *cur = this_node.files.self;
                 while (cur != NULL) {
                     if (peer_cmp(cur->value.owner, this_node.self) == TRUE) {
-                        printf("%s\n", cur->value.name);
+                        printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", cur->value.name);
                     }
                     cur = cur->next;
                 }
