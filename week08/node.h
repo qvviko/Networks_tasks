@@ -74,7 +74,7 @@ struct PeerNode {
     struct LinkedFileList files;
 };
 struct PeerNode this_node;
-
+pthread_mutex_t lock;
 
 void *initialise_client(void *);
 

@@ -222,6 +222,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
     bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
+    printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET, p.type);
     if (bytes_sent == -1) {
         fprintf(stderr, "error on send protocol to load a file: %d\n", errno);
         exit(EXIT_FAILURE);
@@ -231,6 +232,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
     bytes_sent = sendto(client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
+    printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET, file_buf);
     if (bytes_sent == -1) {
         fprintf(stderr, "error on send to send file name: %d\n", errno);
         exit(EXIT_FAILURE);
@@ -239,6 +241,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
     bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
+    printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET, file_size);
     if (bytes_received == -1) {
         fprintf(stderr, "error on receive file size errno: %d\n", errno);
         exit(EXIT_FAILURE);
@@ -264,6 +267,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
             bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
                                       (struct sockaddr *) &destination_addr,
                                       &addr_len);
+            printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET, file_size);
             if (bytes_received == -1) {
                 fprintf(stderr, "error on receive next word number %d errno: %d\n", file_size, errno);
                 exit(EXIT_FAILURE);
@@ -530,7 +534,6 @@ void *handle_client(void *data) {
         exit(EXIT_FAILURE);
     }
     printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", p.type);
-
     //Check protocol type, do appropriate things according to it
     if (p.type == PROT_SYN) {
 
@@ -667,6 +670,11 @@ void *handle_client(void *data) {
 int main(void) {
     pthread_t server;
     ssize_t bytes_read;
+    if (pthread_mutex_init(&lock, NULL) != 0) {
+        printf("\n mutex init failed\n");
+        return 1;
+    }
+
     memset(&this_node, 0, sizeof(this_node));
     printf(ANSI_COLOR_GREEN "How should I call you?" ANSI_COLOR_RESET "\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
