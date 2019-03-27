@@ -186,8 +186,8 @@ void remove_files(Peer peer) {
     struct LinkedFileNode *cur = this_node.files.self;
     while (cur != NULL) {
         if (peer_cmp(cur->value.owner, peer) == TRUE) {
-            printf(ANSI_COLOR_GREEN "Removing file %s from peer %s" ANSI_COLOR_RESET "\n", cur->value.owner.name,
-                   cur->value.name);
+//            printf(ANSI_COLOR_GREEN "Removing file %s from peer %s" ANSI_COLOR_RESET "\n", cur->value.owner.name,
+//                   cur->value.name);
             remove_file(&this_node.files, cur->value);
         }
         cur = cur->next;
@@ -195,7 +195,7 @@ void remove_files(Peer peer) {
 }
 
 //Download new file
-void download_file(struct Peer peer, struct PeerFile file) {
+void download_file(struct Peer peer, struct PeerFile *file) {
     ssize_t bytes_sent, bytes_received;
     int client_socket, file_size;
     char file_buf[BUF_SIZE];
@@ -222,17 +222,17 @@ void download_file(struct Peer peer, struct PeerFile file) {
     bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
-    printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET, p.type);
+    printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", p.type);
     if (bytes_sent == -1) {
         fprintf(stderr, "error on send protocol to load a file: %d\n", errno);
         exit(EXIT_FAILURE);
     }
-    strcpy(file_buf, file.name);
+    strcpy(file_buf, file->name);
     //Send file name
     bytes_sent = sendto(client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
-    printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET, file_buf);
+    printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "\n", file_buf);
     if (bytes_sent == -1) {
         fprintf(stderr, "error on send to send file name: %d\n", errno);
         exit(EXIT_FAILURE);
@@ -241,25 +241,25 @@ void download_file(struct Peer peer, struct PeerFile file) {
     bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
-    printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET, file_size);
+    printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", file_size);
     if (bytes_received == -1) {
         fprintf(stderr, "error on receive file size errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
     //If server doesn't have such file
     if (file_size == -1) {
-        printf(ANSI_COLOR_GREEN "Server doesn't have file %s in their system!" ANSI_COLOR_RESET"\n", file.name);
+//        printf(ANSI_COLOR_GREEN "Server doesn't have file %s in their system!" ANSI_COLOR_RESET"\n", file.name);
         close(client_socket);
         return;
         // If server has such file
     } else {
-        printf(ANSI_COLOR_GREEN "Beginning the download of %s with size %d\n" ANSI_COLOR_RESET"\n", file.name,
-               file_size);
+//        printf(ANSI_COLOR_GREEN "Beginning the download of %s with size %d\n" ANSI_COLOR_RESET"\n", file.name,
+//               file_size);
 
 
         FILE *load_file;
         //Open/create the file
-        load_file = fopen(file.name, "w+");
+        load_file = fopen(file->name, "w+");
         while (file_size > 0) {
             char buf[BUF_SIZE];
             memset(buf, 0, sizeof(buf));
@@ -267,7 +267,7 @@ void download_file(struct Peer peer, struct PeerFile file) {
             bytes_received = recvfrom(client_socket, (void *) &buf, sizeof(buf), 0,
                                       (struct sockaddr *) &destination_addr,
                                       &addr_len);
-            printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET, file_size);
+            printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "\n", buf);
             if (bytes_received == -1) {
                 fprintf(stderr, "error on receive next word number %d errno: %d\n", file_size, errno);
                 exit(EXIT_FAILURE);
@@ -281,14 +281,15 @@ void download_file(struct Peer peer, struct PeerFile file) {
                 fwrite(" ", sizeof(char), strlen(" "), load_file);
             }
         }
+        file->is_loaded = TRUE;
         fclose(load_file);
-        printf(ANSI_COLOR_GREEN "Loaded file %s" ANSI_COLOR_RESET"\n", file.name);
+//        printf(ANSI_COLOR_GREEN "Loaded file %s" ANSI_COLOR_RESET"\n", file.name);
         close(client_socket);
     }
 }
 
 //Count the words in the file
-//Sets current position to the begnning
+//Sets current position to the beginning
 int words_count(FILE *file) {
     int num_words = 0;
     int c;
@@ -395,7 +396,6 @@ void *ping_clients(void *data) {
 
     while (TRUE) {
         sleep(PING_INTERVAL);
-
         peer_num = this_node.peers.length;
         peers = (Peer *) realloc(peers, sizeof(Peer) * peer_num);
         get_peers(this_node.peers, peers);
@@ -457,6 +457,10 @@ void *ping_clients(void *data) {
             //Build files info
             cur_len = strlen(syn_buffer);
             while (cur != NULL) {
+                if (cur->value.is_loaded == FALSE) {
+                    cur = cur->next;
+                    continue;
+                }
                 if (cur->next == NULL)
                     sprintf(syn_buffer + cur_len, "%s", cur->value.name);
                 else
@@ -517,7 +521,9 @@ void *ping_clients(void *data) {
 
 //Server client handler
 void *handle_client(void *data) {
-    struct greet_client_data *client_data = (struct greet_client_data *) data;
+
+    struct greet_client_data *client_data = malloc(sizeof(struct greet_client_data));
+    memcpy(client_data, data, sizeof(struct greet_client_data));
     socklen_t addr_len;
     ssize_t bytes_received, bytes_sent;
     struct PeerFile tmp_file;
@@ -565,8 +571,9 @@ void *handle_client(void *data) {
             if (find_file(&this_node.files, tmp_file) == FALSE) {
 
                 //Add file if not present
-                printf(ANSI_COLOR_GREEN "Got new file %s" ANSI_COLOR_RESET "\n", tmp_file.name);
+//                printf(ANSI_COLOR_GREEN "Got new file %s" ANSI_COLOR_RESET "\n", tmp_file.name);
                 tmp_file.owner = new_node;
+                tmp_file.is_loaded = FALSE;
                 add_file(&this_node.files, tmp_file);
             }
         }
@@ -609,6 +616,9 @@ void *handle_client(void *data) {
         char file_buf[BUF_SIZE];
         FILE *send_file;
 
+        printf(ANSI_COLOR_RED "%s requested a file" ANSI_COLOR_RESET "\n",
+               inet_ntoa(client_data->client_addr.sin_addr));
+
         //Get file name
         bytes_received = recvfrom(client_data->client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr, &addr_len);
@@ -618,7 +628,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
-        printf(ANSI_COLOR_GREEN "Got request for %s" ANSI_COLOR_RESET "\n", file_buf);
+//        printf(ANSI_COLOR_GREEN "Got request for %s" ANSI_COLOR_RESET "\n", file_buf);
         //Check if file is present
         send_file = fopen(file_buf, "r+");
         //If not return PROT_NO
@@ -641,15 +651,14 @@ void *handle_client(void *data) {
             close(client_data->client_socket);
             return NULL;
         }
-        printf(ANSI_COLOR_GREEN "Beginning to send file %s" ANSI_COLOR_RESET "\n", file_buf);
-
+//        printf(ANSI_COLOR_GREEN "Beginning to send file %s" ANSI_COLOR_RESET "\n", file_buf);
 
         //Send number of words
         for (int i = 0; i < num_words; ++i) {
             //Send words by one words at the time
             memset(words_buf, 0, sizeof(words_buf));
             fscanf(send_file, "%s", words_buf);
-
+            usleep(20000);
             bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, BUF_SIZE, 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
@@ -660,7 +669,8 @@ void *handle_client(void *data) {
             }
 
         }
-        printf(ANSI_COLOR_GREEN "Ended transmitting" ANSI_COLOR_RESET "\n");
+        fclose(send_file);
+//        printf(ANSI_COLOR_GREEN "Ended transmitting" ANSI_COLOR_RESET "\n");
 
     }
     close(client_data->client_socket);
@@ -670,10 +680,6 @@ void *handle_client(void *data) {
 int main(void) {
     pthread_t server;
     ssize_t bytes_read;
-    if (pthread_mutex_init(&lock, NULL) != 0) {
-        printf("\n mutex init failed\n");
-        return 1;
-    }
 
     memset(&this_node, 0, sizeof(this_node));
     printf(ANSI_COLOR_GREEN "How should I call you?" ANSI_COLOR_RESET "\n");
@@ -718,6 +724,7 @@ int main(void) {
                 strcpy(file1.name, file_buf);
                 fclose(file);
                 file1.owner = this_node.self;
+                file1.is_loaded = TRUE;
                 add_file(&this_node.files, file1);
             }
         } else if (strcmp(buf, "3") == 0) {
@@ -733,8 +740,7 @@ int main(void) {
             if ((file = find_file(&this_node.files, file_b)) == NULL) {
                 printf(ANSI_COLOR_GREEN "No such file available" ANSI_COLOR_RESET "\n");
             } else {
-                printf("%s %s\n", file->owner.name, file->owner.ip_address);
-                download_file(file->owner, *file);
+                download_file(file->owner, file);
             }
         } else if (strcmp(buf, "4") == 0) {
             //Show list of files

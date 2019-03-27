@@ -16,7 +16,7 @@
 #define PROT_REQUEST 0
 #define PROT_SYN 1
 #define SERVER_PORT     1337
-#define MY_IP_ADDRESS "192.168.0.100"
+#define MY_IP_ADDRESS "10.91.46.102"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
@@ -25,10 +25,7 @@
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
 #define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 #define BUF_SIZE 1024
@@ -74,7 +71,6 @@ struct PeerNode {
     struct LinkedFileList files;
 };
 struct PeerNode this_node;
-pthread_mutex_t lock;
 
 void *initialise_client(void *);
 
