@@ -442,6 +442,7 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "error on send ping errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
+            printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", p.type);
             //If successfully pinged - begin SYNC
             char syn_buffer[BUF_SIZE], p_buf[BUF_SIZE];
             struct LinkedFileNode *cur = this_node.files.self;
@@ -465,6 +466,8 @@ void *ping_clients(void *data) {
             bytes_sent = sendto(connect_fd, (void *) &syn_buffer, sizeof(syn_buffer), 0,
                                 (struct sockaddr *) &server_addr,
                                 sizeof(struct sockaddr));
+            printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "\n", syn_buffer);
+
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending peer size errno : %d\n", errno);
                 exit(EXIT_FAILURE);
@@ -477,6 +480,7 @@ void *ping_clients(void *data) {
             bytes_sent = sendto(connect_fd, (void *) &peer_size, sizeof(int), 0,
                                 (struct sockaddr *) &server_addr,
                                 sizeof(struct sockaddr));
+            printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", peer_size);
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending peer size errno : %d\n", errno);
                 exit(EXIT_FAILURE);
@@ -493,6 +497,8 @@ void *ping_clients(void *data) {
                 bytes_sent = sendto(connect_fd, (void *) &p_buf, sizeof(p_buf), 0,
                                     (struct sockaddr *) &server_addr,
                                     sizeof(struct sockaddr));
+                printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "\n", p_buf);
+
                 if (bytes_sent == -1) {
                     fprintf(stderr, "Error on sending peer buf errno : %d\n", errno);
                     exit(EXIT_FAILURE);
@@ -523,6 +529,7 @@ void *handle_client(void *data) {
         fprintf(stderr, "Error on recv protocol errno: %d\n", errno);
         exit(EXIT_FAILURE);
     }
+    printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", p.type);
 
     //Check protocol type, do appropriate things according to it
     if (p.type == PROT_SYN) {
@@ -534,6 +541,7 @@ void *handle_client(void *data) {
         bytes_received = recvfrom(client_data->client_socket, (void *) &syn_buf, sizeof(syn_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
+        printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "\n", syn_buf);
         if (DEBUG)
             printf("got self info %s\n", syn_buf);
         if (bytes_received == -1) {
@@ -568,6 +576,7 @@ void *handle_client(void *data) {
             fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", peer_sync_num);
         if (DEBUG)
             printf("%d peers from %s\n", peer_sync_num, new_node.name);
         //Get peer one at a time
@@ -577,6 +586,8 @@ void *handle_client(void *data) {
             bytes_received = recvfrom(client_data->client_socket, (void *) &p_buf, sizeof(p_buf), 0,
                                       (struct sockaddr *) &client_data->client_addr,
                                       &addr_len);
+            printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "\n", p_buf);
+
             if (bytes_received == -1) {
                 fprintf(stderr, "error on receive peer buf errno: %d\n", errno);
                 exit(EXIT_FAILURE);
@@ -598,6 +609,8 @@ void *handle_client(void *data) {
         //Get file name
         bytes_received = recvfrom(client_data->client_socket, (void *) &file_buf, sizeof(file_buf), 0,
                                   (struct sockaddr *) &client_data->client_addr, &addr_len);
+        printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "\n", file_buf);
+
         if (bytes_received == -1) {
             fprintf(stderr, "Error on recv self info about client errno: %d\n", errno);
             exit(EXIT_FAILURE);
@@ -615,6 +628,7 @@ void *handle_client(void *data) {
         bytes_sent = sendto(client_data->client_socket, (void *) &num_words, sizeof(num_words), 0,
                             (struct sockaddr *) &client_data->client_addr,
                             sizeof(struct sockaddr));
+        printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", num_words);
         if (bytes_sent == -1) {
             fprintf(stderr, "Error on sending num words errno : %d\n", errno);
             exit(EXIT_FAILURE);
@@ -636,6 +650,7 @@ void *handle_client(void *data) {
             bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, BUF_SIZE, 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
+            printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "\n", words_buf);
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending words buf errno : %d\n", errno);
                 exit(EXIT_FAILURE);
