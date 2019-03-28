@@ -300,7 +300,7 @@ int words_count(FILE *file) {
     while ((c = getc(file)) != EOF) {
         if (isalpha(c)) {
             continue;
-        } else if (c == ' ' || c == '\n') {
+        } else if (c == ' ') {
             num_words++;
         }
     }
@@ -657,8 +657,8 @@ void *handle_client(void *data) {
         for (int i = 0; i < num_words; ++i) {
             //Send words by one words at the time
             memset(words_buf, 0, sizeof(words_buf));
-            fscanf(send_file, "%s", words_buf);
-            usleep(20000);
+            fscanf(send_file, "%[^ ] ", words_buf);
+            usleep(25000);
             bytes_sent = sendto(client_data->client_socket, (void *) &words_buf, BUF_SIZE, 0,
                                 (struct sockaddr *) &client_data->client_addr,
                                 sizeof(struct sockaddr));
