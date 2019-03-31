@@ -13,24 +13,25 @@
 #include <ctype.h>
 
 #define CONNECT_N       10
-#define PROT_REQUEST 0
-#define PROT_SYN 1
+#define PROT_PING 55
+#define PROT_ACK 56
+#define PROT_ADD_PEER 50
+#define PROT_SYNC_PEERS 60
+#define PROT_SYNC_FILES 61
+#define PROT_GET_FILE 70
+#define PROT_OK 100
+#define PROT_NO 200
 #define SERVER_PORT     1337
-#define MY_IP_ADDRESS "10.240.17.15"
+#define MY_IP_ADDRESS "192.168.1.67"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
-#define DEBUG FALSE
+#define PEER_BUF 10
 
-
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
-#define BUF_SIZE 1024
+#define min(m,n) ((m) < (n) ? (m) : (n))
+#define max(m,n) ((m) > (n) ? (m) : (n))
 typedef struct Peer {
-    char name[BUF_SIZE];
+    char name[25];
     char ip_address[20];
     uint16_t port;
 } Peer;
@@ -45,9 +46,7 @@ struct LinkedPeerList {
 
 
 struct PeerFile {
-    char name[BUF_SIZE];
-    Peer owner;
-    int is_loaded;
+    char name[25];
 };
 struct LinkedFileNode {
     struct LinkedFileNode *next, *previous;
@@ -58,7 +57,7 @@ struct LinkedFileList {
     struct LinkedFileNode *self;
 };
 struct Protocol {
-    int type;
+    short type;
 };
 
 struct greet_client_data {
@@ -72,6 +71,7 @@ struct PeerNode {
 };
 struct PeerNode this_node;
 
+
 void *initialise_client(void *);
 
 void *initialise_server(void *);
@@ -80,5 +80,5 @@ void *handle_client(void *);
 
 void *ping_clients(void *);
 
-void add_peer_to_a_list(struct Peer peer);
+void connect_to_peer(struct Peer);
 
