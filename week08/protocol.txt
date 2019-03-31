@@ -1,0 +1,23 @@
+1 - SYN
+SEND "name:ip_address:port:[file1..]"
+SEND n (number of peers)
+LOOP - Send a peer at a time "name:ip_address:port"
+
+Q/A
+one send? - yes
+one string? - yes
+how big is the buffer? number of files can be too big - account just for one file
+how the files should be written? again by *:*? - separate by commas
+should it end with : if there are no files? - yes
+
+
+0 - REQUEST
+SEND "filename.txt"
+RECEIVE n (words count in the requested file).
+LOOP - SEND A WORD AT A TIME
+
+Q/A
+What if the system doesn't have this file? - n = -1
+
+Overall Q/A
+Protocol to connect? - SYN contains his name
