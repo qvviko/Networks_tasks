@@ -15,7 +15,7 @@
 #define CONNECT_N       10
 #define PROT_REQUEST 0
 #define PROT_SYN 1
-#define SERVER_PORT     1337
+#define SERVER_PORT     1336
 #define MY_IP_ADDRESS "10.240.17.15"
 #define TRUE 1
 #define FALSE 0

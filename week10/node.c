@@ -332,6 +332,7 @@ void *initialise_server(void *data) {
     socklen_t addrlen;
     struct sockaddr_in server_addr;
 
+    memset(clients, 0, sizeof(clients));
     addrlen = sizeof(struct sockaddr_in);
     //Create server socket that is datagram for tcp transmissions
     if ((server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
@@ -372,6 +373,7 @@ void *initialise_server(void *data) {
     // Create thread of the pinger
     pthread_create(&pinger, NULL, ping_clients, NULL);
     while (TRUE) {
+        pthread_join(clients[current_connect], NULL);
         struct greet_client_data c_data;
         struct sockaddr_in client_addr;
         clients_fd = accept(server_socket,
@@ -774,7 +776,8 @@ int main(void) {
                 }
             }
         } else {
-            fflush(stdin);
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
         }
     }
 }
