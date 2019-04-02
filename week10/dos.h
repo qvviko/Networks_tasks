@@ -25,4 +25,6 @@ struct Victim {
 };
 #define PROT_SYNC 1
 #define TRUE 1
+#define IS_UNIVERSAL TRUE
+
 #endif //NETWORKS_TASKS_DOS_H
