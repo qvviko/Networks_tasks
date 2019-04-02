@@ -25,5 +25,5 @@ struct Victim {
 };
 #define PROT_SYNC 1
 #define TRUE 1
-#define MAX_CONNECT 30
+#define MAX_CONNECT 100
 #endif //NETWORKS_TASKS_DOS_H

