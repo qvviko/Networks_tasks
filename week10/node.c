@@ -458,7 +458,7 @@ void *initialise_server(void *data) {
         memset(&new_client, 0, sizeof(new_client));
         strcpy(new_client.ip_address, inet_ntoa(client_addr.sin_addr));
         if (find_peer_by_ip(&black_list, new_client) == TRUE) {
-            printf("Blacklisted IP!\n");
+            close(clients_fd);
             continue;
         }
 
@@ -466,8 +466,8 @@ void *initialise_server(void *data) {
         int number_of_cons;
         if ((number_of_cons = get_port_by_ip(&current_list, new_client)) != -1) {
             if (number_of_cons > 5) {
-                printf("I'm here\n");
                 // Add to blacklist
+                printf(ANSI_COLOR_GREEN "Blacklisted %s\n" ANSI_COLOR_RESET, new_client.ip_address);
                 pthread_mutex_lock(&bldb_lock);
                 add_peer(&black_list, new_client);
                 pthread_mutex_unlock(&bldb_lock);
@@ -475,6 +475,7 @@ void *initialise_server(void *data) {
                 pthread_mutex_lock(&cdb_lock);
                 remove_peer_by_ip(&current_list, new_client);
                 pthread_mutex_unlock(&cdb_lock);
+                close(clients_fd);
                 continue;
             } else {
                 //Increment current
@@ -488,7 +489,6 @@ void *initialise_server(void *data) {
             add_peer(&current_list, new_client);
             pthread_mutex_unlock(&cdb_lock);
         }
-        printf("%d\n", number_of_cons);
         //Relocate every new client to the new thread
         c_data.client_socket = clients_fd;
         c_data.client_addr = client_addr;
@@ -590,7 +590,9 @@ void *ping_clients(void *data) {
             printf(ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "\n", syn_buffer);
 
             if (bytes_sent == -1) {
-                fprintf(stderr, "Error on sending peer size errno : %d\n", errno);
+                fprintf(stderr, "Error on sending self size errno : %d\n", errno);
+                if (errno == ECONNRESET)
+                    continue;
                 exit(EXIT_FAILURE);
             }
 
@@ -601,9 +603,12 @@ void *ping_clients(void *data) {
             bytes_sent = sendto(connect_fd, (void *) &peer_size, sizeof(int), 0,
                                 (struct sockaddr *) &server_addr,
                                 sizeof(struct sockaddr));
-            printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", peer_size);
+            printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", peer_size);
             if (bytes_sent == -1) {
                 fprintf(stderr, "Error on sending peer size errno : %d\n", errno);
+                if (errno == ECONNRESET) {
+                    continue;
+                }
                 exit(EXIT_FAILURE);
             }
             if (DEBUG)
@@ -622,6 +627,8 @@ void *ping_clients(void *data) {
 
                 if (bytes_sent == -1) {
                     fprintf(stderr, "Error on sending peer buf errno : %d\n", errno);
+                    if (errno == ECONNRESET)
+                        continue;
                     exit(EXIT_FAILURE);
                 }
                 j++;
@@ -701,6 +708,9 @@ void *handle_client(void *data) {
         sscanf(port, "%hu", &new_node.port);
         cur_len = strlen(new_node.name) + strlen(new_node.ip_address) + strlen(port) + 3;
         //Set name
+        if (strlen(peer_buf.ip_address) < 3 || peer_buf.port == 0) {
+            return NULL;
+        }
         add_peer_to_a_list(new_node);
         while (sscanf(syn_buf + cur_len, "%[^,],", small_file_buf) != EOF) {
             cur_len += strlen(small_file_buf) + 1;
@@ -755,6 +765,9 @@ void *handle_client(void *data) {
                 }
             }
             sscanf(p_buf, "%[^:]:%[^:]:%hu", peer_buf.name, peer_buf.ip_address, &peer_buf.port);
+            if (strlen(peer_buf.ip_address) < 3 || peer_buf.port == 0) {
+                continue;
+            }
             //Try to connect to new peers
             if (DEBUG)
                 printf("peer %s from %s\n", p_buf, new_node.name);
