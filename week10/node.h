@@ -21,7 +21,7 @@
 #define FALSE 0
 #define PING_INTERVAL 5
 #define DEBUG FALSE
-
+#define IS_UNIVERSAL TRUE
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
