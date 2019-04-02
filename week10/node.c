@@ -291,12 +291,10 @@ void download_file(struct Peer peer, struct PeerFile *file) {
     }
     p = PROT_REQUEST;
 
-    p = htonl(p);
     //Send protocol type
     bytes_sent = sendto(client_socket, (void *) &p, sizeof(p), 0,
                         (struct sockaddr *) &destination_addr,
                         sizeof(struct sockaddr));
-    p = ntohl(p);
     printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", p);
     if (bytes_sent == -1) {
         fprintf(stderr, "error on send protocol to load a file: %d\n", errno);
@@ -317,7 +315,6 @@ void download_file(struct Peer peer, struct PeerFile *file) {
     bytes_received = recvfrom(client_socket, (void *) &file_size, sizeof(file_size), 0,
                               (struct sockaddr *) &destination_addr,
                               &addr_len);
-    file_size = ntohl(file_size);
     printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", file_size);
     if (bytes_received == -1) {
         fprintf(stderr, "error on receive file size errno: %d\n", errno);
@@ -556,7 +553,6 @@ void *ping_clients(void *data) {
                 }
             }
 
-            p = htonl(p);
             //Send protocol type
             bytes_sent = sendto(connect_fd, (void *) &p, sizeof(p), 0,
                                 (struct sockaddr *) &server_addr,
@@ -565,7 +561,6 @@ void *ping_clients(void *data) {
                 fprintf(stderr, "error on send ping errno: %d\n", errno);
                 exit(EXIT_FAILURE);
             }
-            p = ntohl(p);
             printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", p);
             //If successfully pinged - begin SYNC
             char syn_buffer[BUF_SIZE], p_buf[BUF_SIZE];
@@ -607,12 +602,10 @@ void *ping_clients(void *data) {
             int peer_size = this_node.peers.length;
             struct Peer *sync_peers = malloc(peer_size * sizeof(struct Peer));
 
-            peer_size = htonl(peer_size);
             //send number of peers
             bytes_sent = sendto(connect_fd, (void *) &peer_size, sizeof(int), 0,
                                 (struct sockaddr *) &server_addr,
                                 sizeof(struct sockaddr));
-            peer_size = ntohl(peer_size);
 
             printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", peer_size);
             if (bytes_sent == -1) {
@@ -677,7 +670,6 @@ void *handle_client(void *data) {
     //Receive protocol data from client
     bytes_received = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
                               (struct sockaddr *) &client_data->client_addr, &addr_len);
-    p = ntohl(p);
     if (bytes_received == -1) {
         if (errno == EAGAIN) {
             fprintf(stderr, "No data was sent for 10 sec\n");
@@ -745,7 +737,6 @@ void *handle_client(void *data) {
         bytes_received = recvfrom(client_data->client_socket, (void *) &peer_sync_num, sizeof(peer_sync_num), 0,
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
-        peer_sync_num = ntohl(peer_sync_num);
         if (bytes_received == -1) {
             if (errno == EAGAIN) {
                 fprintf(stderr, "No data was sent for 10 sec\n");
@@ -818,12 +809,10 @@ void *handle_client(void *data) {
         } else {
             num_words = words_count(send_file);
         }
-        num_words = htonl(num_words);
         //Send number of words
         bytes_sent = sendto(client_data->client_socket, (void *) &num_words, sizeof(num_words), 0,
                             (struct sockaddr *) &client_data->client_addr,
                             sizeof(struct sockaddr));
-        num_words = ntohl(num_words);
         printf(ANSI_COLOR_BLUE "%d" ANSI_COLOR_RESET "\n", num_words);
         if (bytes_sent == -1) {
             fprintf(stderr, "Error on sending num words errno : %d\n", errno);

@@ -57,9 +57,6 @@ struct LinkedFileList {
     int length;
     struct LinkedFileNode *self;
 };
-struct Protocol {
-    int type;
-};
 
 struct greet_client_data {
     int client_socket;

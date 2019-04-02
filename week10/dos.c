@@ -51,7 +51,6 @@ int dos(struct Victim target, int N) {
             }
         }
 
-        protocol = htonl(protocol);
         //Send SYNC
         bytes_sent = sendto(connect_fd, (void *) &protocol, sizeof(protocol), 0,
                             (struct sockaddr *) &server_addr,
@@ -60,7 +59,6 @@ int dos(struct Victim target, int N) {
             fprintf(stderr, "Unable to send bytes errno: %d\n", errno);
             return -1;
         }
-        protocol = ntohl(protocol);
         // Sleep a bit
         usleep(50000);
         // Throw the socket away
