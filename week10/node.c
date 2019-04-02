@@ -50,6 +50,79 @@ int find_peer(struct LinkedPeerList *list, struct Peer item) {
     }
 }
 
+int find_peer_by_ip(struct LinkedPeerList *list, struct Peer item) {
+    if (list->length == 0)
+        return FALSE;
+    else {
+        struct LinkedPeerNode *cur = list->self;
+        while (cur != NULL && strcmp(item.ip_address, cur->value.ip_address) != 0) {
+            cur = cur->next;
+        }
+        if (cur == NULL) {
+            return FALSE;
+        }
+        return TRUE;
+    }
+}
+
+int change_conn(struct LinkedPeerList *list, struct Peer item, int incr) {
+    if (list->length == 0)
+        return -1;
+    else {
+        struct LinkedPeerNode *cur = list->self;
+        while (cur != NULL && strcmp(item.ip_address, cur->value.ip_address) != 0) {
+            cur = cur->next;
+        }
+        if (cur == NULL) {
+            return -1;
+        }
+        cur->value.port += incr;
+        return cur->value.port;
+    }
+}
+
+int get_port_by_ip(struct LinkedPeerList *list, struct Peer item) {
+    if (list->length == 0)
+        return -1;
+    else {
+        struct LinkedPeerNode *cur = list->self;
+        while (cur != NULL && strcmp(item.ip_address, cur->value.ip_address) != 0) {
+            cur = cur->next;
+        }
+        if (cur == NULL) {
+            return -1;
+        }
+        return cur->value.port;
+    }
+}
+
+//Remove peer from the linked peer list by ip
+void remove_peer_by_ip(struct LinkedPeerList *list, struct Peer item) {
+    if (list->length == 0) {
+        return;
+    } else {
+        struct LinkedPeerNode *prev = NULL;
+        struct LinkedPeerNode *cur = list->self;
+        while (cur != NULL && strcmp(item.ip_address, cur->value.ip_address) != 0) {
+            prev = cur;
+            cur = cur->next;
+        }
+        if (cur == NULL)
+            return;
+        else {
+            if (prev == NULL) {
+                list->self = cur->next;
+            } else
+                prev->next = cur->next;
+            if (cur->next != NULL) {
+                cur->next->previous = cur->previous;
+            }
+            free(cur);
+        }
+    }
+    list->length--;
+}
+
 //Remove peer from the linked peer list
 void remove_peer(struct LinkedPeerList *list, struct Peer item) {
     if (list->length == 0) {
@@ -141,7 +214,7 @@ void remove_file(struct LinkedFileList *list, struct PeerFile file) {
     } else {
         struct LinkedFileNode *prev = NULL;
         struct LinkedFileNode *cur = list->self;
-        while (cur != NULL && file_cmp(file, cur->value) == TRUE) {
+        while (cur != NULL && file_cmp(file, cur->value) == FALSE) {
             prev = cur;
             cur = cur->next;
         }
@@ -379,6 +452,37 @@ void *initialise_server(void *data) {
         clients_fd = accept(server_socket,
                             (struct sockaddr *) &client_addr,
                             &addrlen);
+
+        //Check if in blacklist, if so continue
+        struct Peer new_client;
+        memset(&new_client, 0, sizeof(new_client));
+        strcpy(new_client.ip_address, inet_ntoa(client_addr.sin_addr));
+        if (find_peer_by_ip(&black_list, new_client) == TRUE) {
+            printf("Blacklisted IP!\n");
+            continue;
+        }
+
+        //Check current list
+        int number_of_cons;
+        if ((number_of_cons = get_port_by_ip(&current_list, new_client)) != -1) {
+            if (number_of_cons > 5) {
+                // Add to blacklist
+                pthread_mutex_lock(&bldb_lock);
+                add_peer(&black_list, new_client);
+                pthread_mutex_unlock(&bldb_lock);
+                //Remove from current list connect
+                pthread_mutex_lock(&cdb_lock);
+                remove_peer_by_ip(&current_list, new_client);
+                pthread_mutex_unlock(&cdb_lock);
+                continue;
+            } else {
+                //Increment current
+                pthread_mutex_lock(&cdb_lock);
+                change_conn(&current_list, new_client, 1);
+                pthread_mutex_unlock(&cdb_lock);
+            }
+        }
+
         //Relocate every new client to the new thread
         c_data.client_socket = clients_fd;
         c_data.client_addr = client_addr;
@@ -677,6 +781,19 @@ void *handle_client(void *data) {
 
     }
     close(client_data->client_socket);
+    int conn;
+    struct Peer new_client;
+    memset(&new_client, 0, sizeof(new_client));
+    strcpy(new_client.ip_address, inet_ntoa(client_data->client_addr.sin_addr));
+
+    pthread_mutex_lock(&cdb_lock);
+    if ((conn = get_port_by_ip(&current_list, new_client)) == 1) {
+        remove_peer_by_ip(&current_list, new_client);
+    } else {
+        //Decrement current
+        change_conn(&current_list, new_client, -1);
+    }
+    pthread_mutex_unlock(&cdb_lock);
     free(client_data);
     return 0;
 }
@@ -686,6 +803,11 @@ int main(void) {
     ssize_t bytes_read;
 
     memset(&this_node, 0, sizeof(this_node));
+    memset(&black_list, 0, sizeof(black_list));
+    memset(&current_list, 0, sizeof(current_list));
+    pthread_mutex_init(&cdb_lock, NULL);
+    pthread_mutex_init(&bldb_lock, NULL);
+
     printf(ANSI_COLOR_GREEN "How should I call you?" ANSI_COLOR_RESET "\n");
     bytes_read = read(0, this_node.self.name, sizeof(this_node.self.name) - 1);
     this_node.self.name[bytes_read - 1] = '\0';

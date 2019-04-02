@@ -71,8 +71,10 @@ struct PeerNode {
     struct LinkedFileList files;
 };
 struct PeerNode this_node;
-
-void *initialise_client(void *);
+struct LinkedPeerList black_list;
+struct LinkedPeerList current_list;
+pthread_mutex_t bldb_lock;
+pthread_mutex_t cdb_lock;
 
 void *initialise_server(void *);
 
