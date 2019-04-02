@@ -466,6 +466,7 @@ void *initialise_server(void *data) {
         int number_of_cons;
         if ((number_of_cons = get_port_by_ip(&current_list, new_client)) != -1) {
             if (number_of_cons > 5) {
+                printf("I'm here\n");
                 // Add to blacklist
                 pthread_mutex_lock(&bldb_lock);
                 add_peer(&black_list, new_client);
@@ -481,8 +482,13 @@ void *initialise_server(void *data) {
                 change_conn(&current_list, new_client, 1);
                 pthread_mutex_unlock(&cdb_lock);
             }
+        } else {
+            pthread_mutex_lock(&cdb_lock);
+            new_client.port = 1;
+            add_peer(&current_list, new_client);
+            pthread_mutex_unlock(&cdb_lock);
         }
-
+        printf("%d\n", number_of_cons);
         //Relocate every new client to the new thread
         c_data.client_socket = clients_fd;
         c_data.client_addr = client_addr;
@@ -638,13 +644,31 @@ void *handle_client(void *data) {
     struct Protocol p;
     size_t cur_len;
     int peer_sync_num;
+    struct timeval timeout;
+    timeout.tv_sec = 10;
+    timeout.tv_usec = 0;
+
+    //Setting timeouts
+    if (setsockopt(client_data->client_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout,
+                   sizeof(timeout)) < 0) {
+        printf("Setsockopt failed errno: %d", errno);
+        exit(EXIT_FAILURE);
+    }
+
 
     //Receive protocol data from client
     bytes_received = recvfrom(client_data->client_socket, (void *) &p, sizeof(p), 0,
                               (struct sockaddr *) &client_data->client_addr, &addr_len);
     if (bytes_received == -1) {
-        fprintf(stderr, "Error on recv protocol errno: %d\n", errno);
-        exit(EXIT_FAILURE);
+        if (errno == EAGAIN) {
+            fprintf(stderr, "No data was sent for 10 sec\n");
+            close(client_data->client_socket);
+            free(client_data);
+            return NULL;
+        } else {
+            fprintf(stderr, "Error on recv protocol errno: %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
     }
     printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", p.type);
     //Check protocol type, do appropriate things according to it
@@ -661,8 +685,15 @@ void *handle_client(void *data) {
         if (DEBUG)
             printf("got self info %s\n", syn_buf);
         if (bytes_received == -1) {
-            fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
-            exit(EXIT_FAILURE);
+            if (errno == EAGAIN) {
+                fprintf(stderr, "No data was sent for 10 sec\n");
+                close(client_data->client_socket);
+                free(client_data);
+                return NULL;
+            } else {
+                fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
         }
         char port[10];
         //Set up name and files
@@ -690,8 +721,15 @@ void *handle_client(void *data) {
                                   (struct sockaddr *) &client_data->client_addr,
                                   &addr_len);
         if (bytes_received == -1) {
-            fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
-            exit(EXIT_FAILURE);
+            if (errno == EAGAIN) {
+                fprintf(stderr, "No data was sent for 10 sec\n");
+                close(client_data->client_socket);
+                free(client_data);
+                return NULL;
+            } else {
+                fprintf(stderr, "error on receive number of peers errno: %d\n", errno);
+                exit(EXIT_FAILURE);
+            }
         }
         printf(ANSI_COLOR_RED "%d" ANSI_COLOR_RESET "\n", peer_sync_num);
         if (DEBUG)
@@ -706,8 +744,15 @@ void *handle_client(void *data) {
             printf(ANSI_COLOR_RED "%s" ANSI_COLOR_RESET "\n", p_buf);
 
             if (bytes_received == -1) {
-                fprintf(stderr, "error on receive peer buf errno: %d\n", errno);
-                exit(EXIT_FAILURE);
+                if (errno == EAGAIN) {
+                    fprintf(stderr, "No data was sent for 10 sec\n");
+                    close(client_data->client_socket);
+                    free(client_data);
+                    return NULL;
+                } else {
+                    fprintf(stderr, "error on receive peer buf errno: %d\n", errno);
+                    exit(EXIT_FAILURE);
+                }
             }
             sscanf(p_buf, "%[^:]:%[^:]:%hu", peer_buf.name, peer_buf.ip_address, &peer_buf.port);
             //Try to connect to new peers
