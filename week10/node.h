@@ -16,7 +16,7 @@
 #define PROT_REQUEST 0
 #define PROT_SYN 1
 #define SERVER_PORT     1337
-#define MY_IP_ADDRESS "192.168.1.71"
+#define MY_IP_ADDRESS "10.91.46.102"
 #define TRUE 1
 #define FALSE 0
 #define PING_INTERVAL 5
